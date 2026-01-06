@@ -1,0 +1,43 @@
+name: Raqeeb Testing Pipeline
+on: [push, pull_request]
+
+jobs:
+  # SECURITY TESTING: Checks for vulnerabilities 
+  security_audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+
+  # PERFORMANCE TESTING: Checks website speed and best practices
+  speed_audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Lighthouse Audit
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: 'https://gradversion3.netlify.app/' 
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # 3. LOAD TESTING: Checks stability for 100 users
+  load_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run JMeter Load Test
+        uses: QAInsights/PerfAction@v5.6.2
+        with:
+          test-plan-path: './raqeeb test plan.jmx' 
+          args: "-e -o ./reports/"
+      - name: Upload JMeter Dashboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-report
+          path: ./reports/
