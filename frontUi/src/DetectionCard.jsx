@@ -1,21 +1,35 @@
+import { useState } from "react";
 import "./DetectionCard.css";
+import BlockOverlay from "./BlockOverlay";
 import { Wifi, Signal } from "lucide-react";
 
 export default function DetectionCard({ detection }) {
+  const [showOverlay, setShowOverlay] = useState(false);
+
   const rssi = detection.rssi || 0;
   const signalStrength = rssi > -50 ? "strong" : rssi > -70 ? "medium" : "weak";
 
   const signalPercent = Math.min(100, Math.max(0, ((rssi + 100) / 60) * 100));
 
+  const activeBlock = Number(detection.block);
+
   return (
-    <div className={`detection-card detection-${signalStrength}`}>
+    <div
+      className={`detection-card detection-${signalStrength} detection-relative`}
+      onMouseEnter={() => setShowOverlay(true)}
+      onMouseLeave={() => setShowOverlay(false)}
+    >
+      {showOverlay && <BlockOverlay activeBlock={activeBlock} />}
+
       <div className="detection-card-header">
         <div className={`detection-icon-circle detection-${signalStrength}`}>
           <Wifi className="detection-icon" />
         </div>
+
         <div className="detection-main-info">
           <h3 className="detection-ssid">{detection.ssid || "(no SSID)"}</h3>
         </div>
+
         <span className="detection-block-badge">Block #{detection.block}</span>
       </div>
 
@@ -28,6 +42,7 @@ export default function DetectionCard({ detection }) {
             {detection.rssi} dBm
           </span>
         </div>
+
         <div className="detection-signal-bar">
           <div
             className={`detection-signal-fill detection-${signalStrength}`}
@@ -50,7 +65,9 @@ export default function DetectionCard({ detection }) {
             signal
           </span>
         </div>
+
         <div className="detection-footer-separator" />
+
         <div className="detection-anchor">
           <span className="detection-anchor-label">Anchor:</span>
           <span className="detection-anchor-value">{detection.anchor}</span>
@@ -59,3 +76,4 @@ export default function DetectionCard({ detection }) {
     </div>
   );
 }
+// FORCE_CHANGE

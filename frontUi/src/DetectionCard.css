@@ -172,3 +172,6 @@
   font-weight: 500;
   color: #e5e7eb;
 }
+.detection-relative {
+  position: relative;
+}
