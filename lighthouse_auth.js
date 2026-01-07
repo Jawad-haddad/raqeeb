@@ -21,7 +21,7 @@ const { execSync } = require('child_process');
 
   console.log('Waiting for Dashboard to load...');
   try {
-    await page.waitForSelector('.dashboard-content', { timeout: 15000 });
+    await page.waitForSelector('.dashboard-sidebar', { timeout: 15000 });
     console.log('Dashboard detected! Starting audit...');
   } catch (e) {
     console.log('Timeout waiting for dashboard selector. Forcing a 5s sleep...');
