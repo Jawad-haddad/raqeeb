@@ -1,32 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import Dashboard from "./Dashboard";
 import LoginPage from "./LoginPage";
+import { supabase } from "../supabase";
 
 function App() {
-  const [loggedIn, setLoggedIn] = useState(
-    () => localStorage.getItem("loggedIn") === "true"
-  );
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = () => {
-    setLoggedIn(true);
-    localStorage.setItem("loggedIn", "true");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+      }
+    );
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const handleLogout = () => {
-    setLoggedIn(false);
-    localStorage.removeItem("loggedIn");
-  };
+  if (loading) return null;
 
-  if (!loggedIn) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (!session) {
+    return <LoginPage />;
   }
 
   return <Dashboard onLogout={handleLogout} />;
 }
 
 export default App;
-// force change for supabase auth
-// force change for supabase auth
-// force commit
-// force commit
+
+
+
+
+
+
