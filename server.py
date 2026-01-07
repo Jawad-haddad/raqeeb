@@ -8,7 +8,7 @@ import sys
 import os
 
 # ==========================================
-#                CONFIGURATION
+#                CONFIGURATION
 # ========================================== 
 
 # 1. YOUR PHONE'S MAC ADDRESS
@@ -16,11 +16,11 @@ TARGET_MAC = "28:c2:1f:ec:23:1a"
 
 # 2. SYSTEM TUNING
 MAX_STALE_SECONDS = 4.0   # If phone not seen for 4s, remove it
-NOISE_FLOOR       = -95   # Ignore signals weaker than this
-UPDATE_INTERVAL   = 0.2   # Screen refresh rate (fast)
+NOISE_FLOOR       = -95   # Ignore signals weaker than this
+UPDATE_INTERVAL   = 0.2   # Screen refresh rate (fast)
 
 # ==========================================
-#            CALIBRATION (THE FIX)
+#            CALIBRATION (THE FIX)
 # ==========================================
 
 # A. BALANCE THE ANCHORS (Offsets)
