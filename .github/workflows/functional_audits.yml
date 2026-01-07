@@ -17,7 +17,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest statistics # Add flask or other server deps here
+          pip install pytest flask flask-cors statistics
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run Pytest
