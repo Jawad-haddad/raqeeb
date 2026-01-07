@@ -1,4 +1,4 @@
-name: Functional Logic Pipeline
+name: Functional Testing Pipeline
 on: [push, pull_request]
 
 jobs:
