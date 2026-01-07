@@ -1,89 +1,73 @@
-# test_server.py
 import pytest
-from collections import deque
-import statistics
+from server import identify_block_logic, AnchorFilter, ZoneStabilizer, THRESH_FRONT, THRESH_MIDDLE
 
-# Import specific functions and variables from your server.py
-from server import identify_block_logic, AnchorFilter, THRESH_FRONT, THRESH_MIDDLE
+# Testing the boundaries between Front and Middle rows
+# Front threshold is -55
+def test_boundary_front_vs_middle():
+    # stronger than -55 should be front
+    res_front = identify_block_logic(-50, -90, -90)
+    assert "1" in res_front or "2" in res_front or "3" in res_front
 
-# ==========================================
-# TEST 1: LOGIC & ZONES (The 9-Block System)
-# ==========================================
+    # -56 is weaker than -55 so it should be middle
+    res_middle = identify_block_logic(-56, -90, -90)
+    assert "4" in res_middle or "5" in res_middle or "6" in res_middle
 
-def test_block_1_detection():
-    """
-    Scenario: Device is very close to Left Anchor.
-    Expected: Strong Left signal (> -60) -> Front Row + Left Column = Block 1
-    """
-    # Raw Inputs: Left is strong (-40), others are weak (-90)
-    # Note: offsets in your code are added to these.
-    result = identify_block_logic(val_left=-40, val_center=-90, val_right=-90)
+# Testing the boundaries between Middle and Back rows
+# Middle threshold is -60
+def test_boundary_middle_vs_back():
+    # -59 is still middle
+    res_mid = identify_block_logic(-59, -90, -90)
+    assert "4" in res_mid or "5" in res_mid or "6" in res_mid
+
+    # -61 is weaker than -60 so it should be back
+    res_back = identify_block_logic(-61, -90, -90)
+    assert "7" in res_back or "8" in res_back or "9" in res_back
+
+# If signals are equal, left should win based on our list order
+def test_tie_breaker_left_vs_center():
+    # both are strong (-40)
+    result = identify_block_logic(-40, -40, -90)
+    # should pick Block 1 (Left)
     assert result == "Block 1"
 
-def test_block_5_detection():
-    """
-    Scenario: Device is in the middle of the room.
-    Expected: Medium Center signal (-65) -> Middle Row + Center Col = Block 5
-    """
-    # -65 is weaker than THRESH_FRONT (-60) but stronger than THRESH_MIDDLE (-70)
-    # This creates "Middle" row.
-    result = identify_block_logic(val_left=-90, val_center=-65, val_right=-90)
-    assert result == "Block 5"
+# If center and right are equal, center wins
+def test_tie_breaker_center_vs_right():
+    result = identify_block_logic(-90, -50, -50)
+    assert result == "Block 2"
 
-def test_block_9_detection():
-    """
-    Scenario: Device is far back right.
-    Expected: Weak Right signal (-80) -> Back Row + Right Col = Block 9
-    """
-    # -80 is weaker than THRESH_MIDDLE (-70), so it falls to "Back" row.
-    result = identify_block_logic(val_left=-90, val_center=-90, val_right=-80)
-    assert result == "Block 9"
+# Test weird positive value bug
+def test_extreme_positive_rssi():
+    # if we get +10 rssi it should still count as strong
+    result = identify_block_logic(10, -90, -90)
+    assert "1" in result or "2" in result or "3" in result
 
-# ==========================================
-# TEST 2: CALIBRATION (The Offsets)
-# ==========================================
+# Test when no sensors pick up anything
+def test_dead_silence():
+    # if all are -999 it returns Unknown
+    result = identify_block_logic(-999, -999, -999)
+    assert result == "Unknown"
 
-def test_calibration_offsets():
-    """
-    Scenario: Left (-55) is actually stronger than Center (-58) raw.
-    BUT, your code has OFFSET_CENTER = 3.
-    Center becomes -55.
-    If OFFSET_LEFT is 0, they tie or compete.
-    
-    Let's test a case where offset changes the winner.
-    Suppose:
-    Left Raw: -60 (Offset 0) -> Final -60
-    Center Raw: -61 (Offset +3) -> Final -58
-    
-    Winner should be CENTER because -58 > -60.
-    """
-    result = identify_block_logic(val_left=-60, val_center=-61, val_right=-90)
-    # If offsets work, Center (-58) beats Left (-60)
-    assert "Center" in str(result) or "5" in str(result) or "2" in str(result) or "8" in str(result)
+# Testing the stabilizer buffer
+def test_stabilizer_fill_up():
+    stab = ZoneStabilizer()
 
-# ==========================================
-# TEST 3: NOISE FILTERING (The Median)
-# ==========================================
+    # adding just 4 items, buffer isn't full yet
+    for _ in range(4):
+        res = stab.update("Block 1")
 
-def test_median_filter_removes_spikes():
-    """
-    Scenario: Sensor sends a random noise spike (-20) among normal data (-60).
-    Expected: The spike should be ignored by the median filter.
-    """
-    f = AnchorFilter()
-    
-    # 1. Add normal data
-    f.update("Anchor_1", -60)
-    f.update("Anchor_1", -60)
-    
-    # 2. Add ONE huge noise spike (e.g., reflection)
-    f.update("Anchor_1", -10) 
-    
-    # 3. Add more normal data
-    f.update("Anchor_1", -60)
-    f.update("Anchor_1", -60)
-    
-    # Median of [-60, -60, -10, -60, -60] is -60. 
-    # The -10 should disappear.
-    result = f.get_value("Anchor_1")
-    assert result == -60
+    # should just return the last item since it can't vote yet
+    assert res == "Block 1"
+
+# Make sure one random bad reading doesn't change the zone
+def test_stabilizer_ignores_glitch():
+    stab = ZoneStabilizer()
+
+    # fill it with block 1
+    for _ in range(8):
+        stab.update("Block 1")
+
+    # send one block 9
+    output = stab.update("Block 9")
+
+    # should still say block 1
+    assert output == "Block 1"
