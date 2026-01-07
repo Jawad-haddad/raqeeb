@@ -89,14 +89,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run JMeter Load Test
-        uses: QAInsights/PerfAction@v5.6.2
+      - name: Set up JRE
+        uses: actions/setup-java@v4
         with:
-          test-plan-path: './raqeeb_test_plan.jmx' 
-          args: "-e -o ./reports/ -Jduration=30 -X"
+         distribution: 'temurin'
+         java-version: '17'
+         
+      - name: Cache JMeter
+        id: cache-jmeter
+        uses: actions/cache@v4
+        with:
+         path: apache-jmeter-5.6.3
+         key: jmeter-5.6.3-bin
+
+      - name: Download JMeter
+        if: steps.cache-jmeter.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz
+          tar -xzf apache-jmeter-5.6.3.tgz
+
+      - name: Add JMeter to Path
+        run: echo "$(pwd)/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
+
+      - name: Run JMeter Load Test
+        run: |
+          jmeter -n -t ./raqeeb_test_plan.jmx \
+               -l results.jtl \
+               -e -o ./reports/ \
+               -Djava.net.preferIPv4Stack=true
 
       - name: Upload Results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-results
-          path: results.jtl./reports/
+          path: |
+            results.jtl
+            reports/
