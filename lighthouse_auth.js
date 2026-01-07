@@ -27,9 +27,9 @@ const { exec } = require('child_process');
   const endpoint = browser.wsEndpoint();
   const port = new URL(endpoint).port;
   
-  console.log('Step 4: Running Lighthouse on port ${port}...');
+  console.log(`Step 4: Running Lighthouse on port ${port}...`);
   
-  const lhCommand = 'npx lighthouse https://gradversion3.netlify.app/ --port=${port} --output html --output-path ./lh-report.html --chrome-flags="--headless"';
+  const lhCommand = `npx lighthouse https://gradversion3.netlify.app/ --port=${port} --output html --output-path ./lh-report.html --chrome-flags="--headless"`;
   
   exec(lhCommand, async (err, stdout, stderr) => {
     if (err) {
