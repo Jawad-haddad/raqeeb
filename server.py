@@ -1,36 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from collections import deque
-import statistics
-import time
-import logging
-import sys
-import os
-
-# ==========================================
-#                CONFIGURATION
-# ========================================== 
-
-# 1. YOUR PHONE'S MAC ADDRESS
-TARGET_MAC = "28:c2:1f:ec:23:1a"
-
-# 2. SYSTEM TUNING
-MAX_STALE_SECONDS = 4.0   # If phone not seen for 4s, remove it
-NOISE_FLOOR       = -95   # Ignore signals weaker than this
-UPDATE_INTERVAL   = 0.2   # Screen refresh rate (fast)
-
-# ==========================================
-#            CALIBRATION (THE FIX)
-# ==========================================
-
-# A. BALANCE THE ANCHORS (Offsets)
-# Use this if one anchor is always "winning" even when …
-[23:14, 1/5/2026] mariam anbar: this is in the pi rn
-[23:14, 1/5/2026] mariam anbar: i’ve looked it up 
-and this has some little fixes
-
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 from collections import deque, Counter
 import statistics
 import time
