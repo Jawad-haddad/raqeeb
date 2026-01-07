@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const { exec } = require('child_process');
 
 (async () => {
   const browser = await puppeteer.launch({ 
@@ -9,23 +10,34 @@ const fs = require('fs');
   const page = await browser.newPage();
 
   console.log('Step 1: Navigating to Login...');
-  await page.goto('http://localhost:3000/login', { waitUntil: 'networkidle2' });
+  await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'networkidle2' });
 
-  await page.type('#email', 'supajust2004@gmail.com');
-  await page.type('#password', 'Supa4ever%');
+  console.log('Step 2: Entering Credentials...');
+  await page.waitForSelector('input[type="email"]');
+  await page.type('input[type="email"]', process.env.EMAIL);
+  await page.type('input[type="password"]', process.env.PASSWORD);
   
-  console.log('Step 2: Clicking Login...');
-  await Promise.all([
-    page.click('#login-button'), 
-    page.waitForNavigation({ waitUntil: 'networkidle0' }),
-  ]);
+  console.log('Step 3: Clicking Login...');
+  await page.click('.login-button');
+  
+  await new Promise(r => setTimeout(r, 5000)); 
 
-  const localStorageData = await page.evaluate(() => JSON.stringify(localStorage));
-  fs.writeFileSync('ls.json', localStorageData);
+  console.log('Session state captured.');
 
-  const cookies = await page.cookies();
-  fs.writeFileSync('cookies.json', JSON.stringify(cookies));
-
-  console.log('Step 3: Session Saved Successfully!');
-  await browser.close();
+  const endpoint = browser.wsEndpoint();
+  const port = new URL(endpoint).port;
+  
+  console.log('Step 4: Running Lighthouse on port ${port}...');
+  
+  const lhCommand = 'npx lighthouse https://gradversion3.netlify.app/ --port=${port} --output html --output-path ./lh-report.html --chrome-flags="--headless"';
+  
+  exec(lhCommand, async (err, stdout, stderr) => {
+    if (err) {
+      console.error('Lighthouse Error:', err);
+    } else {
+      console.log('Lighthouse Output:', stdout);
+      console.log('Step 5: Audit complete. Report generated as lh-report.html');
+    }
+    await browser.close();
+  });
 })();
