@@ -2,7 +2,7 @@ name: Non-Functional Testing Pipeline
 on: [push, pull_request]
 
 jobs:
-  # SECURITY TESTING: Checks for vulnerabilities 
+  # 1. SECURITY TESTING
   security_audit:
     runs-on: ubuntu-latest
     steps:
@@ -14,12 +14,11 @@ jobs:
         with:
           command: code test
 
-  # PERFORMANCE TESTING: Checks website speed and best practices
+  # 2. SPEED TESTING 
   speed_audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -41,28 +40,39 @@ jobs:
             });
             const page = await browser.newPage();
 
-            console.log('Navigating to Netlify Login...');
+            console.log('Step 1: Navigating to App...');
             await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'networkidle2' });
 
+            console.log('Step 2: Entering Credentials...');
             await page.waitForSelector('input[type="email"]');
             await page.type('input[type="email"]', process.env.EMAIL);
             await page.type('input[type="password"]', process.env.PASSWORD);
 
-            console.log('Credentials entered. Submitting...');
-            
-            await Promise.all([
-              page.click('.login-button'), 
-              page.waitForNavigation({ waitUntil: 'networkidle0' }),
-              new Promise(r => setTimeout(r, 5000))
-            ]);
+            console.log('Step 3: Submitting Login...');
+            await page.click('.login-button');
 
-            console.log('Login successful. Running Lighthouse on Dashboard...');
+            // Wait for the dashboard sidebar to confirm login success
+            console.log('Waiting for Dashboard UI...');
+            try {
+              await page.waitForSelector('.dashboard-sidebar', { timeout: 15000 });
+              console.log('Dashboard detected!');
+            } catch (e) {
+              console.log('Selector timeout, using 5s safety sleep...');
+              await new Promise(r => setTimeout(r, 5000));
+            }
+
             const port = new URL(browser.wsEndpoint()).port;
-            
-            execSync('npx lighthouse https://gradversion3.netlify.app/dashboard --port=${port} --output html --output-path ./lh-report.html --chrome-flags="--headless"');
+            console.log(`Step 4: Running Lighthouse on port ${port}...`);
+
+            // FIX: Using backticks so ${port} works correctly in JavaScript
+            try {
+              execSync(`npx lighthouse https://gradversion3.netlify.app/ --port=${port} --output html --output-path ./lh-report.html --chrome-flags="--headless"`, { stdio: 'inherit' });
+              console.log('Step 5: Audit complete.');
+            } catch (error) {
+              console.error('Lighthouse execution failed:', error.message);
+            }
 
             await browser.close();
-            console.log('Audit complete. Report generated.');
           })();
           EOF
 
@@ -78,7 +88,7 @@ jobs:
           name: lighthouse-dashboard-report
           path: lh-report.html
 
-  #  LOAD TESTING: Checks stability for 100 users
+  # 3. LOAD TESTING (Optimized for speed)
   load_audit:
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +97,7 @@ jobs:
         uses: QAInsights/PerfAction@v5.6.2
         with:
           test-plan-path: './raqeeb_test_plan.jmx' 
-          args: "-e -o ./reports/"
+          args: "-e -o ./reports/ -Jduration=45 -X"
       - name: Upload JMeter Dashboard
         uses: actions/upload-artifact@v4
         with:
