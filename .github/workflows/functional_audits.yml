@@ -28,7 +28,7 @@ jobs:
           name: functional-logic-results
           path: logic-report.xml
 
-api_audit:
+  api_audit:
     name: Postman API Audit
     runs-on: ubuntu-latest # Changed from self-hosted to ensure a clean environment
     needs: logic_audit 
