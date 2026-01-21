@@ -18,12 +18,12 @@
 							"    pm.response.to.have.status(200);\r",
 							"});\r",
 							"\r",
-							"// 2. Check if we actually got an Access Token back\r",
+							"// 2. Check if we got an Access Token back\r",
 							"pm.test(\"Response contains Access Token\", function () {\r",
 							"    var jsonData = pm.response.json();\r",
 							"    pm.expect(jsonData).to.have.property(\"access_token\");\r",
 							"    \r",
-							"    // Optional: Save this token to use in other tests automatically\r",
+							"    // Save this token to use in other tests automatically\r",
 							"    pm.environment.set(\"auth_token\", jsonData.access_token);\r",
 							"});\r",
 							""
@@ -88,7 +88,7 @@
 					"script": {
 						"exec": [
 							"// 1. Check if the server rejected the login (Status 400 Bad Request)\r",
-							"// Note: Supabase usually returns 400 for bad passwords. If yours returns 401, change 400 to 401 below.\r",
+							"",
 							"pm.test(\"Status code is 400 (Login Failed)\", function () {\r",
 							"    pm.response.to.have.status(400);\r",
 							"});\r",
@@ -221,7 +221,7 @@
 					"script": {
 						"exec": [
 							"pm.test(\"Status code is 409 or Error Message\", function () {\r",
-							"    // Adjust based on how your backend handles duplicates\r",
+							"    // Adjusted based on how the backend handles duplicates\r",
 							"    pm.expect(pm.response.text()).to.include(\"duplicate\"); \r",
 							"});"
 						],
@@ -279,14 +279,11 @@
 					"script": {
 						"exec": [
 							"pm.test(\"Database rejects invalid MAC format\", function () {\r",
-							"    // If your database has a CHECK constraint or Regex, this returns 400 or 500\r",
+							"    // database has a constraint, this returns 400 or 500\r",
 							"    // If it allows it (no constraint), this test will FAIL (Red).\r",
-							"    // Adjust expectation based on your actual DB rules.\r",
-							"    pm.expect(pm.response.code).to.be.oneOf([201, 400, 500]);\r",
+							"    // Adjusted based on actual DB rules.\r",
+							"    pm.expect(pm.response.code).to.be.oneOf([400, 500]);\r",
 							"\r",
-							"    if (pm.response.code === 201) {\r",
-							"        console.log(\"Warning: Database accepted invalid MAC. Add a Constraint!\");\r",
-							"    }\r",
 							"});"
 						],
 						"type": "text/javascript",
@@ -466,7 +463,7 @@
 							"// Since 100 > -55, it should be in the Front Row (Block 1, 2, or 3)\r",
 							"pm.test(\"Logic handles extreme positive as Front Row\", function () {\r",
 							"    var jsonData = pm.response.json();\r",
-							"    // It might return \"Block 1\", \"Block 2\", etc. depending on your offsets\r",
+							"    // It might return \"Block 1\", \"Block 2\", etc. depending on the offsets\r",
 							"    // We just check that it returned A block, not \"Unknown\" or null\r",
 							"    pm.expect(jsonData.status).to.eql(\"OK\");\r",
 							"});"
