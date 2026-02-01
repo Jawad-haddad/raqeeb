@@ -38,9 +38,11 @@ const fs = require('fs');
     await page.type('input[type="password"]', process.env.PASSWORD || '');
     
     console.log('Step 3: Clicking Login...');
-    await page.click('.login-button');
+    await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle0' }), 
+        page.click('.login-button'),
+    ]);
     
-    // Wait for the sidebar OR an error message to appear
     console.log('Waiting for dashboard to load...');
     await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 30000 });
     
