@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabase";
 import { getDetectionsFromSupabase } from "../data-utils";
-import DetectionCard from "./DetectionCard";
-import { Building2, Play, Square, Loader2, Wifi, Clock, BookOpen, Radio } from "lucide-react";
+import HallGrid from "./HallGrid";
+import { Building2, Play, Square, Loader2, Clock, BookOpen, Radio } from "lucide-react";
 
 function fmtTime(ts) {
   if (!ts) return "—";
@@ -246,35 +246,32 @@ export default function TAHallView() {
             </button>
           </div>
 
-          {/* Detections */}
-          <div className="detections-header" style={{ marginTop: 20 }}>
-            <h3 className="detections-title">Detections this session</h3>
-            <span className="detections-count">
-              {detections.length} device{detections.length !== 1 ? "s" : ""}
-              {loadingDet && " · refreshing…"}
-            </span>
-          </div>
+          {/* Hall grid */}
+          <div style={{ marginTop: 16 }}>
+            <div className="detections-header" style={{ marginBottom: 4, padding: "0 28px" }}>
+              <h3 className="detections-title" style={{ padding: 0 }}>Detections this session</h3>
+              <span className="detections-count">
+                {detections.length} device{detections.length !== 1 ? "s" : ""}
+                {loadingDet && " · refreshing…"}
+              </span>
+            </div>
 
-          {detections.length === 0 && !loadingDet ? (
-            <div className="detections-empty">
-              <div className="detections-empty-icon">
-                <Radio style={{ width: 30, height: 30, color: "#6b7280" }} />
+            {detections.length === 0 && !loadingDet ? (
+              <div className="detections-empty">
+                <div className="detections-empty-icon">
+                  <Radio style={{ width: 30, height: 30, color: "#6b7280" }} />
+                </div>
+                <h3>No detections yet</h3>
+                <p>Waiting for ESP32 nodes to report unauthorized devices.</p>
               </div>
-              <h3>No detections yet</h3>
-              <p>Waiting for ESP32 nodes to report unauthorized devices.</p>
-            </div>
-          ) : (
-            <div className="detections-grid">
-              {detections.map((d, i) => (
-                <DetectionCard
-                  key={`${d.mac ?? "no-mac"}-${i}`}
-                  detection={d}
-                  onDeleted={handleDeleted}
-                  onUpdated={handleUpdated}
-                />
-              ))}
-            </div>
-          )}
+            ) : (
+              <HallGrid
+                rows={hall?.rows ?? 3}
+                columns={hall?.columns ?? 3}
+                detections={detections}
+              />
+            )}
+          </div>
         </>
       )}
     </div>

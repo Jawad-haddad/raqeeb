@@ -7,19 +7,12 @@ import { Wifi, Signal, Trash2, Edit3, Loader2 } from "lucide-react";
 import { supabase } from "../supabase";
 import { useRoleContext } from "./RoleContext";
 
-const STATUS_COLOR = {
-  active: "#22c55e",
-  resolved: "#0ea5e9",
-  flagged: "#f97373",
-};
-
 export default function DetectionCard({ detection, onDeleted, onUpdated }) {
   const { isAdmin, isTeacher } = useRoleContext();
   const canEdit = isAdmin || isTeacher;
   const [showOverlay, setShowOverlay] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [note, setNote] = useState(detection.note || "");
-  const [status, setStatus] = useState(detection.status || "active");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -42,18 +35,16 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
     setSaveError("");
     const { error } = await supabase
       .from("espData")
-      .update({ note: note.trim() || null, status })
+      .update({ note: note.trim() || null })
       .eq("mac", detection.mac);
     setSaving(false);
     if (error) {
       setSaveError("Save failed: " + error.message);
     } else {
-      onUpdated?.({ ...detection, note: note.trim() || null, status });
+      onUpdated?.({ ...detection, note: note.trim() || null });
       setShowEditModal(false);
     }
   };
-
-  const currentStatus = detection.status || "active";
 
   return (
     <>
@@ -82,10 +73,9 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
                   className="detection-action-btn detection-edit-btn"
                   onClick={() => {
                     setNote(detection.note || "");
-                    setStatus(detection.status || "active");
                     setShowEditModal(true);
                   }}
-                  title="Edit note / status"
+                  title="Edit note"
                 >
                   <Edit3 size={13} />
                 </button>
@@ -105,17 +95,11 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
           </div>
         </div>
 
-        <div className="detection-meta-row">
-          <span
-            className="detection-status-badge"
-            style={{ color: STATUS_COLOR[currentStatus] || STATUS_COLOR.active }}
-          >
-            ● {currentStatus}
-          </span>
-          {detection.note && (
+        {detection.note && (
+          <div className="detection-meta-row">
             <span className="detection-note-text">{detection.note}</span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="detection-signal-section">
           <div className="detection-signal-row">
@@ -155,20 +139,8 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
       </div>
 
       {showEditModal && (
-        <Modal title="Edit Detection" onClose={() => setShowEditModal(false)}>
+        <Modal title="Edit Detection Note" onClose={() => setShowEditModal(false)}>
           <div className="edit-form">
-            <div className="edit-field">
-              <label className="edit-label">Status</label>
-              <select
-                className="edit-select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="active">Active</option>
-                <option value="resolved">Resolved</option>
-                <option value="flagged">Flagged</option>
-              </select>
-            </div>
             <div className="edit-field">
               <label className="edit-label">Note</label>
               <textarea
@@ -181,17 +153,10 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
             </div>
             {saveError && <p className="edit-error">{saveError}</p>}
             <div className="edit-actions">
-              <button
-                className="edit-cancel-btn"
-                onClick={() => setShowEditModal(false)}
-              >
+              <button className="edit-cancel-btn" onClick={() => setShowEditModal(false)}>
                 Cancel
               </button>
-              <button
-                className="edit-save-btn"
-                onClick={handleSaveEdit}
-                disabled={saving}
-              >
+              <button className="edit-save-btn" onClick={handleSaveEdit} disabled={saving}>
                 {saving && <Loader2 size={13} className="spinning" />}
                 Save
               </button>

@@ -14,6 +14,7 @@ export default function HallsManager() {
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(3);
   const [anchorRef, setAnchorRef] = useState("");
+  const [anchorIds, setAnchorIds] = useState("");
 
   const fetchHalls = async () => {
     setLoading(true);
@@ -33,18 +34,20 @@ export default function HallsManager() {
     if (!name.trim()) { setError("Hall name is required."); return; }
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
+    const parsedAnchorIds = anchorIds.split(",").map((s) => s.trim()).filter(Boolean);
     const { error: err } = await supabase.from("halls").insert({
       name: name.trim(),
       location: location.trim() || null,
       rows: Number(rows),
       columns: Number(columns),
       anchor_ref: anchorRef.trim() || null,
+      anchor_ids: parsedAnchorIds.length > 0 ? parsedAnchorIds : null,
       created_by: user.id,
     });
     if (err) { setError(err.message); }
     else {
       setSuccess(`Hall "${name.trim()}" created.`);
-      setName(""); setLocation(""); setRows(3); setColumns(3); setAnchorRef("");
+      setName(""); setLocation(""); setRows(3); setColumns(3); setAnchorRef(""); setAnchorIds("");
       fetchHalls();
     }
     setSubmitting(false);
@@ -106,6 +109,11 @@ export default function HallsManager() {
               <input className="am-input" placeholder="e.g. anchor-1 (front-left)" value={anchorRef}
                 onChange={(e) => setAnchorRef(e.target.value)} />
             </div>
+            <div className="am-field">
+              <label className="am-label">Anchor IDs (comma-separated)</label>
+              <input className="am-input" placeholder="e.g. esp-01, esp-02, esp-03" value={anchorIds}
+                onChange={(e) => setAnchorIds(e.target.value)} />
+            </div>
             {error   && <p className="am-error">{error}</p>}
             {success && <p className="am-success">{success}</p>}
             <button type="submit" disabled={submitting} className="am-submit-btn">
@@ -132,6 +140,9 @@ export default function HallsManager() {
                       <span className="hall-meta-badge">{h.rows}×{h.columns}</span>
                       {h.location && <span className="hall-meta-badge">{h.location}</span>}
                       {h.anchor_ref && <span className="hall-meta-badge">ref: {h.anchor_ref}</span>}
+                      {h.anchor_ids?.length > 0 && (
+                        <span className="hall-meta-badge">{h.anchor_ids.length} anchor{h.anchor_ids.length !== 1 ? "s" : ""}</span>
+                      )}
                     </div>
                   </div>
                   <button className="am-delete-btn" onClick={() => deleteHall(h.id, h.name)}>
