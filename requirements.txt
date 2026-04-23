@@ -4,3 +4,6 @@ pytest
 statistics
 supabase
 python-dotenv
+numpy
+pandas
+scikit-learn // or whatever library is used
