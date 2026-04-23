@@ -4,7 +4,9 @@ import { MessageSquare, Trash2, Plus, Loader2, X } from "lucide-react";
 import { useRoleContext } from "./RoleContext";
 
 export default function CommentsSection({ detectionMac, ssid }) {
-  const { isTeacher } = useRoleContext();
+  const { isAdmin, isTeacher, isTA } = useRoleContext();
+  const canWrite = isAdmin || isTeacher || isTA;
+  const canDelete = isAdmin || isTeacher;
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [count, setCount] = useState(0);
@@ -98,7 +100,7 @@ export default function CommentsSection({ detectionMac, ssid }) {
                       </div>
                       <div className="comment-content-row">
                         <p className="comment-text">{c.content}</p>
-                        {isTeacher && (
+                        {canDelete && (
                           <button className="comment-delete-btn" onClick={() => deleteComment(c.id)}>
                             <Trash2 size={11} />
                           </button>
@@ -110,7 +112,7 @@ export default function CommentsSection({ detectionMac, ssid }) {
               )}
             </div>
 
-            {isTeacher && (
+            {canWrite && (
               <div className="comments-modal-footer">
                 <textarea
                   className="comment-input"

@@ -1719,4 +1719,503 @@ body {
     }
   }
 
-  
+/* ============================================================
+   Hall grid fields (rows/columns side by side)
+   ============================================================ */
+.hall-grid-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hall-meta-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* ============================================================
+   Sessions view
+   ============================================================ */
+.sessions-assign-panel {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1.4fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.sessions-section {
+  margin-bottom: 24px;
+}
+
+.sessions-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sessions-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+  display: inline-block;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.session-card {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.session-card-live {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(0, 30, 15, 0.8);
+}
+
+.session-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.session-hall-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.session-status-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.session-status-live {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.session-status-done {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.session-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 3px 0 0;
+}
+
+/* ============================================================
+   TA Hall View
+   ============================================================ */
+.ta-view-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.ta-no-hall-card {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 16px;
+  padding: 40px 32px;
+  text-align: center;
+  max-width: 420px;
+}
+
+.ta-no-hall-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.ta-no-hall-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.ta-hall-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.ta-hall-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ta-hall-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ta-hall-loc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ta-hall-grid-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.ta-session-start-card {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.ta-session-start-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ta-session-start-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ta-session-start-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ta-course-select {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ta-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: none;
+  background: #16a34a;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ta-start-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ta-session-live-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 30, 15, 0.8);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ta-session-live-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ta-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+  50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.1); }
+}
+
+.ta-live-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.ta-course-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #0f172a;
+  border: 1px solid #1f2937;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.ta-since-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ta-end-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ta-end-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.ta-end-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ============================================================
+   Reports view
+   ============================================================ */
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.report-card {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.report-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.report-hall-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.report-hall-loc {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.report-date {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.report-course {
+  font-size: 12px;
+  color: #22c55e;
+  margin: 0 0 8px;
+}
+
+.report-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.report-arrow {
+  color: #374151;
+}
+
+.report-duration {
+  color: #4b5563;
+}
+
+.report-stats-row {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid #1f2937;
+  padding-top: 10px;
+}
+
+.report-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.report-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.report-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.report-stat-flagged { color: #f97373; }
+.report-stat-flagged .report-stat-value { color: #f97373; }
+
+.report-stat-resolved { color: #22c55e; }
+.report-stat-resolved .report-stat-value { color: #22c55e; }
+
+/* ============================================================
+   Session create card (teacher form)
+   ============================================================ */
+.session-create-card {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 28px;
+}
+
+.session-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.session-course {
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.session-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #1f2937;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.session-delete-btn:hover {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.3);
+  color: #f97373;
+}
+
+.session-status-pending {
+  background: rgba(234,179,8,0.12);
+  color: #fde047;
+  border: 1px solid rgba(234,179,8,0.3);
+}
+
+/* ============================================================
+   TA info bar (course + time chips)
+   ============================================================ */
+.ta-session-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.ta-info-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #0f172a;
+  border: 1px solid #1f2937;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+@media (max-width: 768px) {
+  .session-form-row {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .sessions-assign-panel {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .ta-session-start-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ta-course-select {
+    min-width: unset;
+  }
+  .reports-grid {
+    grid-template-columns: minmax(0,1fr);
+  }
+}

@@ -184,6 +184,12 @@ create policy "espData: teachers update" on public."espData"
   );
 
 -- ============================================================
+-- NOTE: Run schema_updates.sql AFTER this file to add:
+--   halls, courses, hall_assignments, sessions, reports tables
+--   and to migrate roles (assistant → ta, add admin).
+-- ============================================================
+
+-- ============================================================
 -- AFTER RUNNING: manually promote your existing admin user:
 --
 --   insert into public.user_roles (user_id, role)

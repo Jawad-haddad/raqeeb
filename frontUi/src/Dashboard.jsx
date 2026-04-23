@@ -4,108 +4,203 @@ import { getDetectionsFromSupabase } from "../data-utils";
 import WhitelistForm from "./whitelist";
 import DetectionCard from "./DetectionCard";
 import AccountManager from "./AccountManager";
+import HallsManager from "./HallsManager";
+import CoursesManager from "./CoursesManager";
+import SessionsView from "./SessionsView";
+import ReportsView from "./ReportsView";
+import TAHallView from "./TAHallView";
 import { useRoleContext } from "./RoleContext";
-import { Radio, Activity, Wifi, Shield, LogOut, Users } from "lucide-react";
+import {
+  Radio, Activity, Wifi, Shield, LogOut,
+  Users, Building2, BookOpen, FileText, ClipboardList,
+} from "lucide-react";
 
-function Dashboard({ onLogout, userEmail }) {
-  const { isTeacher, role } = useRoleContext();
+// ── Admin all-detections view (unchanged look) ───────────────
+function AllDetectionsView() {
+  const { isAdmin, isTeacher } = useRoleContext();
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasNewDetection, setHasNewDetection] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [whitelistCount, setWhitelistCount] = useState(0);
-  const [view, setView] = useState("detections");
-
   const prevDataRef = useRef([]);
 
-  const norm = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
+  const norm    = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
   const normMac = (v) => norm(v);
+  const uniqueKey = (d) => norm(d.ssid) || normMac(d.mac) || String(d.id ?? JSON.stringify(d));
 
   const fetchFromSupabase = async () => {
     setIsLoading(true);
-
     try {
-      const { data: whitelistRows, error: wlErr } = await supabase
-        .from("whitelist")
-        .select("mac");
-
-      if (wlErr) console.error("Whitelist error:", wlErr);
-
-      const wlMAC = (whitelistRows || [])
-        .map((w) => normMac(w.mac))
-        .filter(Boolean);
-
+      const { data: wlRows } = await supabase.from("whitelist").select("mac");
+      const wlMAC = (wlRows || []).map((w) => normMac(w.mac)).filter(Boolean);
       setWhitelistCount(wlMAC.length);
 
       const detections = await getDetectionsFromSupabase();
+      const filtered   = (detections || []).filter((d) => !wlMAC.includes(normMac(d.mac)));
+      const unique     = Array.from(new Map(filtered.map((d) => [uniqueKey(d), d])).values());
 
-      const filteredRows = (detections || []).filter((d) => {
-        const mac = normMac(d.mac);
-        return !(mac && wlMAC.includes(mac));
-      });
-
-      const uniqueKey = (d) => {
-        const ssid = norm(d.ssid);
-        const mac = normMac(d.mac);
-        return ssid || mac || String(d.id ?? JSON.stringify(d));
-      };
-
-      const uniqueData = Array.from(
-        new Map(filteredRows.map((d) => [uniqueKey(d), d])).values()
-      );
-
-      const newDetections = uniqueData.filter(
-        (d) => !prevDataRef.current.some((prev) => uniqueKey(prev) === uniqueKey(d))
-      );
-
-      if (newDetections.length > 0) {
+      const newOnes = unique.filter((d) => !prevDataRef.current.some((p) => uniqueKey(p) === uniqueKey(d)));
+      if (newOnes.length > 0) {
         setHasNewDetection(true);
-        setToastMessage(`🎯 ${newDetections.length} new detection(s) found!`);
+        setToastMessage(`${newOnes.length} new detection(s) found!`);
       } else {
         setHasNewDetection(false);
-        setToastMessage("⚠️ No new detections");
+        setToastMessage("No new detections");
       }
-
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
-
-      setData(uniqueData);
-      prevDataRef.current = uniqueData;
+      setData(unique);
+      prevDataRef.current = unique;
     } catch (err) {
-      console.error(err);
-      setToastMessage("❌ Failed to fetch data");
+      setToastMessage("Failed to fetch data");
       setShowToast(true);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => { fetchFromSupabase(); }, []);
   useEffect(() => {
-    fetchFromSupabase();
+    const iv = setInterval(fetchFromSupabase, 9000);
+    return () => clearInterval(iv);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(fetchFromSupabase, 9000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleDetectionDeleted = (mac) => {
+  const handleDeleted = (mac) => {
     setData((prev) => prev.filter((d) => d.mac !== mac));
     prevDataRef.current = prevDataRef.current.filter((d) => d.mac !== mac);
   };
-
-  const handleDetectionUpdated = (updated) => {
-    setData((prev) => prev.map((d) => (d.mac === updated.mac ? updated : d)));
-    prevDataRef.current = prevDataRef.current.map((d) =>
-      d.mac === updated.mac ? updated : d
-    );
+  const handleUpdated = (upd) => {
+    setData((prev) => prev.map((d) => (d.mac === upd.mac ? upd : d)));
+    prevDataRef.current = prevDataRef.current.map((d) => (d.mac === upd.mac ? upd : d));
   };
 
   const totalDetections = data.length;
-  const uniqueAnchors = new Set(data.map((d) => d.anchor_id ?? d.anchor)).size;
+  const uniqueAnchors   = new Set(data.map((d) => d.anchor_id ?? d.anchor)).size;
 
-  const avatarLetter = (userEmail || "A")[0].toUpperCase();
+  return (
+    <>
+      {showToast && (
+        <div className={`toast ${hasNewDetection ? "toast-success" : "toast-neutral"}`}>
+          {toastMessage}
+        </div>
+      )}
+      <header className="dashboard-header">
+        <div>
+          <h2 className="dashboard-header-title">All Detections</h2>
+          <p className="dashboard-header-subtitle">Real-time WiFi detection overview · auto-refresh every 9s</p>
+        </div>
+      </header>
+      <div className="dashboard-content">
+        <div className="dashboard-top-row">
+          <div className={`status-card ${isLoading ? "status-card-loading" : hasNewDetection ? "status-card-ok" : "status-card-empty"}`}>
+            <div className="status-icon-wrapper">
+              {isLoading ? <Activity className="status-icon spinning" /> : <Activity className="status-icon" />}
+            </div>
+            <div>
+              <h3 className="status-title">{isLoading ? "Scanning…" : hasNewDetection ? "New detections" : "No new detections"}</h3>
+              <p className="status-subtitle">Last check just now</p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon-circle"><Shield className="summary-icon" /></div>
+            <div>
+              <h3 className="summary-title">Network overview</h3>
+              <p className="summary-subtitle">{totalDetections} devices · {uniqueAnchors} anchors · {whitelistCount} whitelisted</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="detections-header">
+          <h3 className="detections-title">Detected devices</h3>
+          <span className="detections-count">{data.length} device{data.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {data.length === 0 && !isLoading ? (
+          <div className="detections-empty">
+            <div className="detections-empty-icon"><Radio className="detections-empty-radio" /></div>
+            <h3>No detections yet</h3>
+            <p>Waiting for ESP32 nodes to send data.</p>
+          </div>
+        ) : (
+          <div className="detections-grid">
+            {data.map((d, i) => (
+              <DetectionCard
+                key={`${d.mac ?? "no-mac"}-${d.anchor ?? "no-anchor"}-${i}`}
+                detection={d}
+                onDeleted={handleDeleted}
+                onUpdated={handleUpdated}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Role label ───────────────────────────────────────────────
+function roleLabel(role) {
+  if (role === "admin")   return "Admin";
+  if (role === "teacher") return "Teacher";
+  if (role === "ta")      return "TA";
+  return role || "User";
+}
+
+// ── Nav config per role ──────────────────────────────────────
+function navItems(role) {
+  if (role === "admin") return [
+    { id: "sessions",   label: "Sessions",     Icon: Activity },
+    { id: "halls",      label: "Halls",        Icon: Building2 },
+    { id: "courses",    label: "Courses",      Icon: BookOpen },
+    { id: "detections", label: "All Detections", Icon: Wifi },
+    { id: "accounts",   label: "Accounts",     Icon: Users },
+    { id: "reports",    label: "Reports",      Icon: FileText },
+  ];
+  if (role === "teacher") return [
+    { id: "sessions",   label: "Sessions",     Icon: Activity },
+    { id: "courses",    label: "Courses",      Icon: BookOpen },
+    { id: "accounts",   label: "Manage TAs",   Icon: Users },
+    { id: "reports",    label: "Reports",      Icon: FileText },
+  ];
+  // TA
+  return [
+    { id: "ta-session", label: "My Session",   Icon: ClipboardList },
+    { id: "reports",    label: "My Reports",   Icon: FileText },
+  ];
+}
+
+function defaultView(role) {
+  if (role === "admin")   return "sessions";
+  if (role === "teacher") return "sessions";
+  return "ta-session";
+}
+
+// ── Main Dashboard ───────────────────────────────────────────
+export default function Dashboard({ onLogout, userEmail }) {
+  const { role, isAdmin, isTeacher, isTA } = useRoleContext();
+  const [view, setView] = useState(() => defaultView(role));
+
+  // Reset view when role resolves
+  useEffect(() => { if (role) setView(defaultView(role)); }, [role]);
+
+  const items = navItems(role);
+  const avatarLetter = (userEmail || "U")[0].toUpperCase();
+  const showWhitelist = isAdmin || isTeacher;
+
+  const renderMain = () => {
+    switch (view) {
+      case "sessions":   return <SessionsView />;
+      case "halls":      return <HallsManager />;
+      case "courses":    return <CoursesManager />;
+      case "detections": return <AllDetectionsView />;
+      case "accounts":   return <AccountManager />;
+      case "reports":    return <ReportsView />;
+      case "ta-session": return <TAHallView />;
+      default:           return null;
+    }
+  };
 
   return (
     <div className="dashboard">
@@ -115,64 +210,39 @@ function Dashboard({ onLogout, userEmail }) {
             <Radio className="sidebar-logo-icon" />
           </div>
           <div>
-            <h1 className="sidebar-title">ESP32 Monitor</h1>
+            <h1 className="sidebar-title">Raqeeb</h1>
             <p className="sidebar-subtitle">
               <span className="sidebar-status-dot" />
-              Live detection
+              {roleLabel(role)}
             </p>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="sidebar-nav">
-          <button
-            className={`sidebar-nav-btn ${view === "detections" ? "sidebar-nav-active" : ""}`}
-            onClick={() => setView("detections")}
-          >
-            <Wifi size={14} />
-            Detections
-          </button>
-          {isTeacher && (
+          {items.map(({ id, label, Icon }) => (
             <button
-              className={`sidebar-nav-btn ${view === "accounts" ? "sidebar-nav-active" : ""}`}
-              onClick={() => setView("accounts")}
+              key={id}
+              className={`sidebar-nav-btn ${view === id ? "sidebar-nav-active" : ""}`}
+              onClick={() => setView(id)}
             >
-              <Users size={14} />
-              Account Manager
+              <Icon size={14} />
+              {label}
             </button>
-          )}
+          ))}
         </nav>
 
-        <div className="sidebar-quickstats">
-          <h3 className="sidebar-quickstats-title">Quick stats</h3>
-          <div className="sidebar-quickstats-grid">
-            <div className="sidebar-stat-card">
-              <div className="sidebar-stat-value">{totalDetections}</div>
-              <div className="sidebar-stat-label">Detected devices</div>
-            </div>
-            <div className="sidebar-stat-card">
-              <div className="sidebar-stat-value">{uniqueAnchors}</div>
-              <div className="sidebar-stat-label">Anchors (ESP32)</div>
-            </div>
-            <div className="sidebar-stat-card">
-              <div className="sidebar-stat-value">{whitelistCount}</div>
-              <div className="sidebar-stat-label">Whitelisted MACs</div>
-            </div>
+        {showWhitelist && (
+          <div className="sidebar-whitelist">
+            <WhitelistForm />
           </div>
-        </div>
-
-        <div className="sidebar-whitelist">
-          <WhitelistForm onInserted={fetchFromSupabase} />
-        </div>
+        )}
 
         <div className="sidebar-user">
           <div className="sidebar-user-info">
             <div className="sidebar-user-avatar">{avatarLetter}</div>
             <div>
               <p className="sidebar-user-name">{userEmail || "User"}</p>
-              <p className="sidebar-user-role">
-                {role === "teacher" ? "Teacher" : "Assistant"}
-              </p>
+              <p className="sidebar-user-role">{roleLabel(role)}</p>
             </div>
           </div>
           <button className="sidebar-logout-btn" onClick={onLogout}>
@@ -183,112 +253,8 @@ function Dashboard({ onLogout, userEmail }) {
       </aside>
 
       <main className="dashboard-main">
-        {showToast && (
-          <div className={`toast ${hasNewDetection ? "toast-success" : "toast-neutral"}`}>
-            {toastMessage}
-          </div>
-        )}
-
-        {view === "accounts" ? (
-          <AccountManager />
-        ) : (
-          <>
-            <header className="dashboard-header">
-              <div>
-                <h2 className="dashboard-header-title">Detection monitor</h2>
-                <p className="dashboard-header-subtitle">
-                  Real-time WiFi detection overview
-                </p>
-                <p className="dashboard-header-small">
-                  Auto-refresh every 9 seconds
-                </p>
-              </div>
-            </header>
-
-            <div className="dashboard-content">
-              <div className="dashboard-top-row">
-                <div
-                  className={`status-card ${
-                    isLoading
-                      ? "status-card-loading"
-                      : hasNewDetection
-                      ? "status-card-ok"
-                      : "status-card-empty"
-                  }`}
-                >
-                  <div className="status-icon-wrapper">
-                    {isLoading ? (
-                      <Activity className="status-icon spinning" />
-                    ) : hasNewDetection ? (
-                      <Activity className="status-icon" />
-                    ) : (
-                      <Wifi className="status-icon" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="status-title">
-                      {isLoading
-                        ? "Scanning..."
-                        : hasNewDetection
-                        ? "New detections"
-                        : "No new detections"}
-                    </h3>
-                    <p className="status-subtitle">
-                      {isLoading ? "Checking for devices" : "Last check just now"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="summary-card">
-                  <div className="summary-icon-circle">
-                    <Shield className="summary-icon" />
-                  </div>
-                  <div>
-                    <h3 className="summary-title">Network overview</h3>
-                    <p className="summary-subtitle">
-                      {totalDetections} devices · {uniqueAnchors} anchors ·{" "}
-                      {whitelistCount} whitelisted
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detections-header">
-                <h3 className="detections-title">Detected devices</h3>
-                <span className="detections-count">
-                  {data.length} device{data.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {data.length === 0 && !isLoading ? (
-                <div className="detections-empty">
-                  <div className="detections-empty-icon">
-                    <Radio className="detections-empty-radio" />
-                  </div>
-                  <h3>No detections yet</h3>
-                  <p>
-                    Waiting for ESP32 to send detection data. Make sure your
-                    nodes are online and connected.
-                  </p>
-                </div>
-              ) : (
-                <div className="detections-grid">
-                  {data.map((d, i) => (
-                    <DetectionCard
-                      key={`${d.mac ?? "no-mac"}-${d.anchor ?? "no-anchor"}-${i}`}
-                      detection={d}
-                      onDeleted={handleDetectionDeleted}
-                      onUpdated={handleDetectionUpdated}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+        {renderMain()}
       </main>
     </div>
   );
 }
-
-export default Dashboard;

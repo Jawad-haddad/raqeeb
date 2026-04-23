@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 import { Shield, Plus, Loader2, Trash2 } from "lucide-react";
+import { useRoleContext } from "./RoleContext";
 
 export default function WhitelistForm({ onInserted }) {
+  const { isAdmin, isTeacher } = useRoleContext();
+  const canManage = isAdmin || isTeacher;
   const [mac, setMac] = useState("");
   const [entries, setEntries] = useState([]);
   const [error, setError] = useState("");
@@ -73,7 +76,7 @@ export default function WhitelistForm({ onInserted }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="whitelist-form">
+      {canManage && <form onSubmit={handleSubmit} className="whitelist-form">
         <div className="whitelist-field">
           <label className="whitelist-label">Device MAC</label>
           <input
@@ -89,10 +92,10 @@ export default function WhitelistForm({ onInserted }) {
             : <><Plus className="whitelist-button-icon" />Add to whitelist</>
           }
         </button>
-      </form>
+      </form>}
 
-      {error && <div className="whitelist-message whitelist-error">{error}</div>}
-      {success && <div className="whitelist-message whitelist-success">{success}</div>}
+      {canManage && error   && <div className="whitelist-message whitelist-error">{error}</div>}
+      {canManage && success && <div className="whitelist-message whitelist-success">{success}</div>}
 
       {entries.length > 0 && (
         <div className="whitelist-entries">
@@ -102,13 +105,15 @@ export default function WhitelistForm({ onInserted }) {
               .map((entry) => (
                 <div key={entry.id} className="whitelist-entry">
                   <span className="whitelist-entry-mac">{entry.mac}</span>
-                  <button
-                    className="whitelist-entry-remove"
-                    onClick={() => handleRemove(entry.id, entry.mac)}
-                    title="Remove from whitelist"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  {canManage && (
+                    <button
+                      className="whitelist-entry-remove"
+                      onClick={() => handleRemove(entry.id, entry.mac)}
+                      title="Remove from whitelist"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                 </div>
               ))
             }

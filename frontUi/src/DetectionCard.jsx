@@ -14,7 +14,8 @@ const STATUS_COLOR = {
 };
 
 export default function DetectionCard({ detection, onDeleted, onUpdated }) {
-  const { isTeacher } = useRoleContext();
+  const { isAdmin, isTeacher } = useRoleContext();
+  const canEdit = isAdmin || isTeacher;
   const [showOverlay, setShowOverlay] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [note, setNote] = useState(detection.note || "");
@@ -75,7 +76,7 @@ export default function DetectionCard({ detection, onDeleted, onUpdated }) {
 
           <div className="detection-header-actions">
             <span className="detection-block-badge">Block #{detection.block}</span>
-            {isTeacher && (
+            {canEdit && (
               <>
                 <button
                   className="detection-action-btn detection-edit-btn"

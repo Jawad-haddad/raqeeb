@@ -21,15 +21,19 @@ export function useRole(userId) {
       .single()
       .then(({ data, error }) => {
         if (!cancelled) {
-          setRole(error ? "assistant" : data.role);
+          setRole(error ? "ta" : data.role);
           setRoleLoading(false);
         }
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [userId]);
 
-  return { role, roleLoading, isTeacher: role === "teacher" };
+  return {
+    role,
+    roleLoading,
+    isAdmin:   role === "admin",
+    isTeacher: role === "teacher",
+    isTA:      role === "ta",
+  };
 }
