@@ -40,7 +40,7 @@
 &quot;node3_rssi&quot;: ${__Random(40,90)},&#xd; should match columns in db
 -->
   &quot;ssid&quot;: &quot;Raqeeb_Secure_Net&quot;,&#xd;
- <!-- &quot;rssi&quot;: -${__Random(30,90)},&#xd; -->
+  &quot;rssi&quot;: -${__Random(30,90)},&#xd;
   &quot;block_number&quot;: ${__Random(1,12)},&#xd;
   &quot;mac&quot;: &quot;${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}&quot;&#xd;
 }</stringProp>
