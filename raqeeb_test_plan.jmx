@@ -34,13 +34,13 @@
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
                 <stringProp name="Argument.value">{&#xd;
   &quot;anchor_id&quot;: ${__Random(1,3)},&#xd;
-/*
+<!--
 &quot;node1_rssi&quot;: ${__Random(40,90)},&#xd;
 &quot;node2_rssi&quot;: ${__Random(40,90)},&#xd;
-&quot;node3_rssi&quot;: ${__Random(40,90)},&#xd; shoudl match columns in db
-*/
+&quot;node3_rssi&quot;: ${__Random(40,90)},&#xd; should match columns in db
+-->
   &quot;ssid&quot;: &quot;Raqeeb_Secure_Net&quot;,&#xd;
- // &quot;rssi&quot;: -${__Random(30,90)},&#xd;
+ <!-- &quot;rssi&quot;: -${__Random(30,90)},&#xd; -->
   &quot;block_number&quot;: ${__Random(1,12)},&#xd;
   &quot;mac&quot;: &quot;${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}&quot;&#xd;
 }</stringProp>
