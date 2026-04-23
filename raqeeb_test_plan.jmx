@@ -49,6 +49,11 @@
             </collectionProp>
           </elementProp>
         </HTTPSamplerProxy>
+       <!-- <hashTree>
+         <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="1s Bridge Sync Timer" enabled="true">
+           <stringProp name="ConstantTimer.delay">1000</stringProp>
+         </ConstantTimer>
+       <hashTree/> -->
         <hashTree>
           <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
             <collectionProp name="HeaderManager.headers">
