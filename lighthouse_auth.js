@@ -31,6 +31,7 @@ const fs = require('fs');
 
     console.log('Step 1: Navigating to site...');
     await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'domcontentloaded' });
+    //await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
     
     console.log('Step 2: Entering Credentials...');
     await page.waitForSelector('input[type="email"]');
@@ -50,13 +51,28 @@ const fs = require('fs');
     await flow.startTimespan({ stepName: 'Dashboard Interaction' });
     await new Promise(resolve => setTimeout(resolve, 2000)); 
     await flow.endTimespan();
+    /* console.log('Step 4: Monitoring Live Signal Performance...');
+    await flow.startTimespan({ stepName: 'Live Data Feed Performance' });
+    await new Promise(resolve => setTimeout(resolve, 10000)); 
+    await flow.endTimespan();*/
 
     await flow.snapshot({ stepName: 'Final Dashboard State' });
 
     const reportHtml = await flow.generateReport();
     fs.writeFileSync('lh-report.html', reportHtml);
+    /*
+    const signalExists = await page.$('.signal-indicator'); // Change this to your actual CSS class
+    if (!signalExists) {
+      throw new Error('Dashboard loaded, but Live Signal Indicator is missing.');
+    }
+    */
     
     const reportJson = JSON.parse(await flow.generateReport('json'));
+    /*
+    const liveStep = reportJson.steps.find(s => s.name === 'Live Data Feed Performance');
+    const tbt = liveStep.lhr.audits['total-blocking-time'].displayValue;
+    console.log(`Live Feed Blocking Time: ${tbt}`);
+    */
     const perfScore = reportJson.steps[0].lhr.categories.performance.score;
     console.log(`Audit Complete. Performance Score: ${Math.round(perfScore * 100)}`);
 
