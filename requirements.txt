@@ -1,9 +1,21 @@
+# --- Core ML & Data Stack (From Documentation) ---
+# Supports 25 feature engineering and SVM RBF kernel
+pandas==3.0.2
+numpy==2.4.4
+scikit-learn==1.8.0
+scipy==1.17.1
+
+# --- Web & API Layer ---
+# Handles ESP32 Bridge communication and JSON payloads
 flask
 flask-cors
-pytest
-statistics
+
+# --- Database & Environment ---
+# Used for storing logs and Radio Map data
 supabase
 python-dotenv
-numpy
-pandas
-scikit-learn // or whatever library is used
+
+# --- Testing & Utils ---
+# Validates 12-block range and accuracy thresholds
+pytest==8.0.0
+statistics
