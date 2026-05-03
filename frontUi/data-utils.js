@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 export const getDetectionsFromSupabase = async ({ sessionId, fromTime, toTime, limit = 200 } = {}) => {
   let query = supabase
     .from("espData")
-    .select("anchor_id, ssid, rssi, block_number, mac, note, status, created_at, session_id")
+    .select("anchor_id, ssid, rssi, block_number, mac, created_at, session_id")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -14,16 +14,19 @@ export const getDetectionsFromSupabase = async ({ sessionId, fromTime, toTime, l
   const { data, error } = await query;
 
   if (error) {
-    // Fallback without newer columns
-    const { data: fallback, error: fbErr } = await supabase
+    // Fallback without newer columns — still filter by sessionId to avoid
+    // returning all rows from the table.
+    let fbQuery = supabase
       .from("espData")
       .select("anchor_id, ssid, rssi, block_number, mac")
       .limit(limit);
+    if (sessionId) fbQuery = fbQuery.eq("session_id", sessionId);
+    const { data: fallback, error: fbErr } = await fbQuery;
     if (fbErr) { console.error("Supabase fetch error:", fbErr.message); return []; }
     return (fallback || []).map((row) => ({
       mac: row.mac, anchor: row.anchor_id, ssid: row.ssid,
       rssi: row.rssi, block: row.block_number,
-      note: null, status: "active", created_at: null, session_id: null,
+      created_at: null, session_id: null,
     }));
   }
 
@@ -33,8 +36,6 @@ export const getDetectionsFromSupabase = async ({ sessionId, fromTime, toTime, l
     ssid:       row.ssid,
     rssi:       row.rssi,
     block:      row.block_number,
-    note:       row.note || null,
-    status:     row.status || "active",
     created_at: row.created_at,
     session_id: row.session_id,
   }));

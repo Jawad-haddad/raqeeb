@@ -1,73 +1,198 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
+import { supabaseAdmin } from "./supabase-admin";
 import {
   FileText, RefreshCw, Loader2, Wifi,
   ChevronDown, ChevronUp, Radio, MapPin, Clock,
+  MessageSquare, BookOpen, Building2, Printer,
 } from "lucide-react";
 import { useRoleContext } from "./RoleContext";
 
-function fmtTime(ts) {
-  if (!ts) return "—";
-  return new Date(ts).toLocaleString();
+// ── Helpers ───────────────────────────────────────────────────
+function fmtTime(ts)      { return ts ? new Date(ts).toLocaleString() : "—"; }
+function fmtShort(ts)     { return ts ? new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"; }
+function duration(s, e)   {
+  if (!s || !e) return "—";
+  const m = Math.round((new Date(e) - new Date(s)) / 60000);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
 }
+function rssiLabel(r)     { return r > -50 ? "Excellent" : r > -65 ? "Good" : r > -80 ? "Fair" : "Weak"; }
 
-function fmtShortTime(ts) {
-  if (!ts) return "—";
-  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function duration(start, end) {
-  if (!start || !end) return "—";
-  const mins = Math.round((new Date(end) - new Date(start)) / 60000);
-  if (mins < 60) return `${mins} min`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-
-function rssiLabel(rssi) {
-  if (rssi > -50) return "Excellent";
-  if (rssi > -65) return "Good";
-  if (rssi > -80) return "Fair";
-  return "Weak";
-}
-
-// ── Per-report detail section ────────────────────────────────
-function ReportDetail({ sessionId }) {
-  const [devices, setDevices] = useState(null);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    supabase
-      .from("espData")
-      .select("ssid, mac, rssi, block_number, anchor_id, note, created_at")
-      .eq("session_id", sessionId)
-      .order("block_number", { ascending: true, nullsFirst: false })
-      .then(({ data }) => setDevices(data || []));
-  }, [sessionId]);
-
-  if (!devices) {
-    return (
-      <div className="report-detail-loading">
-        <Loader2 size={16} className="spinning" />
-        Loading detections…
-      </div>
-    );
-  }
-
-  if (devices.length === 0) {
-    return <p className="report-detail-empty">No device records linked to this session.</p>;
-  }
-
-  // Group by block
+// ── PDF: session-level (per hall) ────────────────────────────
+function printSessionReport(meta, devices, commentsByMac) {
+  const { courseName, hallName, hallCode, examTitle, startedAt, endedAt } = meta;
   const byBlock = {};
   const unlocated = [];
   for (const d of devices) {
     const b = d.block_number;
-    if (b != null && b >= 1) {
-      if (!byBlock[b]) byBlock[b] = [];
-      byBlock[b].push(d);
-    } else {
-      unlocated.push(d);
-    }
+    b != null && b >= 1 ? ((byBlock[b] = byBlock[b] || []).push(d)) : unlocated.push(d);
+  }
+  const deviceRow = (d) => {
+    const comms = commentsByMac[d.mac] || [];
+    return `<tr>
+      <td>${d.ssid || "(no SSID)"}</td>
+      <td style="font-family:monospace;font-size:11px">${d.mac}</td>
+      <td>${d.rssi} dBm</td>
+      <td>${d.anchor_id || "—"}</td>
+      <td>${fmtShort(d.created_at)}</td>
+      <td>${comms.map(c =>
+        `<div style="border-left:3px solid #f90;padding:2px 6px;margin:2px 0;font-size:11px">
+          ${c.content} <span style="color:#888">— ${c.author_email}</span>
+         </div>`
+      ).join("")}</td>
+    </tr>`;
+  };
+  const blockHtml = Object.entries(byBlock)
+    .sort(([a], [b]) => +a - +b)
+    .map(([bl, devs]) => `
+      <h3 style="font-size:13px;margin:18px 0 6px">Block ${bl}
+        <span style="font-weight:400;color:#666">(${devs.length} device${devs.length !== 1 ? "s" : ""})</span>
+      </h3>
+      <table class="dt"><thead><tr><th>SSID</th><th>MAC</th><th>Signal</th><th>Anchor</th><th>Time</th><th>Comments</th></tr></thead>
+      <tbody>${devs.sort((a, b) => (b.rssi ?? -100) - (a.rssi ?? -100)).map(deviceRow).join("")}</tbody></table>
+    `).join("");
+  const ulocHtml = unlocated.length ? `
+    <h3 style="font-size:13px;margin:18px 0 6px;color:#888">Unlocated (${unlocated.length})</h3>
+    <table class="dt"><thead><tr><th>SSID</th><th>MAC</th><th>Signal</th><th>Anchor</th><th>Time</th><th>Comments</th></tr></thead>
+    <tbody>${unlocated.map(deviceRow).join("")}</tbody></table>` : "";
+  const win = window.open("", "_blank");
+  if (!win) { alert("Allow pop-ups to export PDF."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Session Report — ${hallName}</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:13px;padding:32px;color:#1a1a1a}
+  .brand{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#888;margin-bottom:6px}
+  h1{font-size:20px;margin:0 0 4px}.meta{color:#444;margin-bottom:3px}
+  hr{border:none;border-top:2px solid #1a1a1a;margin:14px 0}
+  .dt{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+  .dt th{background:#eee;text-align:left;padding:6px 10px;font-size:11px;text-transform:uppercase}
+  .dt td{padding:6px 10px;border-top:1px solid #eee;vertical-align:top}
+  .footer{margin-top:32px;padding-top:8px;border-top:1px solid #ddd;font-size:11px;color:#888}
+  @media print{body{padding:16px}}</style></head><body>
+  <div class="brand">Raqeeb — Exam Monitoring System</div>
+  <h1>${hallName || "Unknown Hall"}${hallCode ? ` <span style="font-family:monospace;font-size:14px;color:#0066cc">[${hallCode}]</span>` : ""}</h1>
+  ${examTitle ? `<div class="meta"><strong>Exam:</strong> ${examTitle}</div>` : ""}
+  <div class="meta"><strong>Course:</strong> ${courseName || "—"}</div>
+  <div class="meta"><strong>Session:</strong> ${fmtTime(startedAt)} → ${fmtTime(endedAt)} (${duration(startedAt, endedAt)})</div>
+  <div class="meta"><strong>Total Detections:</strong> ${devices.length}</div>
+  <hr>${blockHtml}${ulocHtml}
+  <div class="footer">Generated by Raqeeb on ${new Date().toLocaleString()}</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 600);
+}
+
+// ── PDF: exam-level (all halls) ──────────────────────────────
+function exportExamPDF(exam, emailMap) {
+  const tEmail = emailMap[exam.teacher_id] || "—";
+  const sessions = exam.sessions_breakdown || [];
+  const totalComments = sessions.reduce((n, s) => n + (s.comments?.length || 0), 0);
+
+  const sessionBlocks = sessions.map((s) => {
+    const taEmail = emailMap[s.ta_id] || s.ta_id?.slice(0, 8) || "—";
+    const comms   = s.comments || [];
+    const commHtml = comms.length
+      ? `<table class="dt"><thead><tr><th>Device</th><th>Block</th><th>Comment</th><th>Author</th><th>Time</th></tr></thead>
+         <tbody>${comms.map(c => `<tr>
+           <td>${c.ssid || c.mac || "—"}</td>
+           <td>${c.block != null ? "Block " + c.block : "—"}</td>
+           <td>${c.comment}</td><td>${c.author}</td><td>${fmtShort(c.written_at)}</td>
+         </tr>`).join("")}</tbody></table>`
+      : `<p style="font-size:12px;color:#888;font-style:italic;margin:4px 14px">No comments recorded.</p>`;
+    return `<div class="hall">
+      <table style="width:100%;border-collapse:collapse;background:#f9f9f9">
+        <tr><td style="padding:8px 14px"><span class="hn">${s.hall_name || "Unknown"}</span>
+            ${s.hall_code ? `<span class="hc">[${s.hall_code}]</span>` : ""}</td>
+            <td style="padding:8px 14px;text-align:right;font-size:12px">${s.total_detections} detection${s.total_detections !== 1 ? "s" : ""}</td></tr>
+        <tr><td style="padding:2px 14px 2px;font-size:12px;color:#555">TA: ${taEmail}</td>
+            <td style="padding:2px 14px 2px;text-align:right;font-size:12px;color:#555">${s.hall_location || ""}</td></tr>
+        <tr><td colspan="2" style="padding:2px 14px 8px;font-size:12px;color:#555">
+            ${fmtTime(s.started_at)} → ${fmtTime(s.ended_at)} (${duration(s.started_at, s.ended_at)})</td></tr>
+      </table>
+      <p class="sl">TA Comments</p>${commHtml}
+    </div>`;
+  }).join("");
+
+  const win = window.open("", "_blank");
+  if (!win) { alert("Allow pop-ups to export PDF."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Exam Report — ${exam.exam_title}</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:13px;padding:32px;color:#1a1a1a}
+  .brand{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#888;margin-bottom:6px}
+  h1{font-size:22px;margin:0 0 4px}.meta{color:#444;margin-bottom:3px}
+  hr{border:none;border-top:2px solid #1a1a1a;margin:16px 0}
+  .summ{background:#f4f4f4;border-radius:4px;padding:12px 16px;margin:16px 0 24px;display:flex;gap:32px}
+  .sv{font-size:24px;font-weight:bold;display:block}.sl2{font-size:11px;color:#666}
+  h2{font-size:16px;margin:0 0 12px}
+  .hall{margin-bottom:20px;border:1px solid #ddd;border-radius:4px;overflow:hidden;page-break-inside:avoid}
+  .hn{font-size:15px;font-weight:bold}.hc{font-family:monospace;color:#0066cc;margin-left:6px}
+  .sl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#666;margin:10px 14px 4px;font-weight:bold}
+  .dt{width:100%;border-collapse:collapse;font-size:12px}
+  .dt th{background:#eee;text-align:left;padding:6px 10px;font-size:11px;text-transform:uppercase}
+  .dt td{padding:6px 10px;border-top:1px solid #eee;vertical-align:top}
+  .footer{margin-top:32px;padding-top:8px;border-top:1px solid #ddd;font-size:11px;color:#888}
+  @media print{body{padding:16px}.hall{page-break-inside:avoid}}</style></head><body>
+  <div class="brand">Raqeeb — Exam Monitoring System</div>
+  <h1>${exam.exam_title}</h1>
+  <div class="meta"><strong>Course:</strong> ${exam.course_name || "—"}</div>
+  <div class="meta"><strong>Teacher:</strong> ${tEmail}</div>
+  <div class="meta"><strong>Scheduled:</strong> ${fmtTime(exam.exam_start)} → ${fmtTime(exam.exam_end)}</div>
+  <hr>
+  <div class="summ">
+    <div><span class="sv">${sessions.length}</span><span class="sl2">Halls</span></div>
+    <div><span class="sv">${exam.total_detections}</span><span class="sl2">Total Detections</span></div>
+    <div><span class="sv">${totalComments}</span><span class="sl2">TA Comments</span></div>
+  </div>
+  <h2>Hall Reports</h2>
+  ${sessionBlocks || `<p style="color:#888">No session reports available.</p>`}
+  <div class="footer">Generated by Raqeeb on ${new Date().toLocaleString()}</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 600);
+}
+
+// ── Per-session detail (detections + TA comments) ────────────
+function ReportDetail({ sessionId, reportMeta }) {
+  const [devices,       setDevices]       = useState(null);
+  const [commentsByMac, setCommentsByMac] = useState({});
+
+  useEffect(() => {
+    if (!sessionId) return;
+    (async () => {
+      const { data: devs } = await supabase
+        .from("espData")
+        .select("ssid, mac, rssi, block_number, anchor_id, created_at")
+        .eq("session_id", sessionId)
+        .order("block_number", { ascending: true, nullsFirst: false });
+      setDevices(devs || []);
+
+      const macs = [...new Set((devs || []).map((d) => d.mac).filter(Boolean))];
+      if (macs.length > 0) {
+        const { data: comms } = await supabase
+          .from("comments")
+          .select("detection_mac, content, author_email, created_at")
+          .in("detection_mac", macs)
+          .order("created_at", { ascending: true });
+        const grouped = {};
+        for (const c of comms || []) {
+          (grouped[c.detection_mac] = grouped[c.detection_mac] || []).push(c);
+        }
+        setCommentsByMac(grouped);
+      }
+    })();
+  }, [sessionId]);
+
+  if (!devices) {
+    return <div className="report-detail-loading"><Loader2 size={16} className="spinning" /> Loading detections…</div>;
+  }
+  if (devices.length === 0) {
+    return <p className="report-detail-empty">No device records linked to this session.</p>;
+  }
+
+  const byBlock   = {};
+  const unlocated = [];
+  for (const d of devices) {
+    const b = d.block_number;
+    b != null && b >= 1 ? ((byBlock[b] = byBlock[b] || []).push(d)) : unlocated.push(d);
   }
 
   const uniqueMacs   = new Set(devices.map((d) => d.mac)).size;
@@ -75,96 +200,108 @@ function ReportDetail({ sessionId }) {
   const anchorsUsed  = [...new Set(devices.map((d) => d.anchor_id).filter(Boolean))];
   const blocksHit    = Object.keys(byBlock).length;
   const avgRssi      = Math.round(devices.reduce((s, d) => s + (d.rssi ?? 0), 0) / devices.length);
-  const strongestDev = devices.reduce((best, d) => (d.rssi > (best?.rssi ?? -999) ? d : best), null);
+  const strongest    = devices.reduce((b, d) => (d.rssi > (b?.rssi ?? -999) ? d : b), null);
+  const totalComments = Object.values(commentsByMac).reduce((n, a) => n + a.length, 0);
+
+  const commentBlock = (mac) =>
+    (commentsByMac[mac] || []).map((c, ci) => (
+      <div key={ci} style={{
+        display: "flex", alignItems: "flex-start", gap: 6, marginTop: 6,
+        padding: "6px 8px", background: "rgba(250,204,21,0.07)",
+        borderLeft: "2px solid #facc15", borderRadius: "0 4px 4px 0", fontSize: 11,
+      }}>
+        <MessageSquare size={10} style={{ color: "#facc15", flexShrink: 0, marginTop: 1 }} />
+        <div>
+          <span style={{ color: "#f5f5f5" }}>{c.content}</span>
+          <span style={{ color: "var(--text-muted)", marginLeft: 8 }}>
+            — {c.author_email} · {fmtShort(c.created_at)}
+          </span>
+        </div>
+      </div>
+    ));
 
   return (
     <div className="report-detail">
-
-      {/* ── Quick-scan summary ── */}
+      {/* Summary chips */}
       <div className="report-detail-summary">
-        <div className="rds-chip">
-          <span className="rds-value">{uniqueMacs}</span>
-          <span className="rds-label">unique device{uniqueMacs !== 1 ? "s" : ""}</span>
-        </div>
-        <div className="rds-chip">
-          <span className="rds-value">{uniqueSSIDs}</span>
-          <span className="rds-label">unique SSID{uniqueSSIDs !== 1 ? "s" : ""}</span>
-        </div>
-        <div className="rds-chip">
-          <span className="rds-value">{blocksHit}</span>
-          <span className="rds-label">block{blocksHit !== 1 ? "s" : ""} affected</span>
-        </div>
-        <div className="rds-chip">
-          <span className="rds-value">{anchorsUsed.length}</span>
-          <span className="rds-label">anchor{anchorsUsed.length !== 1 ? "s" : ""} active</span>
-        </div>
-        <div className="rds-chip">
-          <span className="rds-value">{avgRssi} dBm</span>
-          <span className="rds-label">avg signal</span>
-        </div>
+        <div className="rds-chip"><span className="rds-value">{uniqueMacs}</span><span className="rds-label">devices</span></div>
+        <div className="rds-chip"><span className="rds-value">{uniqueSSIDs}</span><span className="rds-label">SSIDs</span></div>
+        <div className="rds-chip"><span className="rds-value">{blocksHit}</span><span className="rds-label">blocks hit</span></div>
+        <div className="rds-chip"><span className="rds-value">{avgRssi} dBm</span><span className="rds-label">avg signal</span></div>
+        {totalComments > 0 && (
+          <div className="rds-chip" style={{ color: "#facc15" }}>
+            <span className="rds-value">{totalComments}</span>
+            <span className="rds-label">comments</span>
+          </div>
+        )}
       </div>
 
-      {/* ── Anchors involved ── */}
+      {/* Anchors (legacy) */}
       {anchorsUsed.length > 0 && (
         <div className="report-detail-anchors">
-          <span className="rda-label">
-            <Radio size={11} /> Anchors:
-          </span>
-          {anchorsUsed.map((a) => (
-            <span key={a} className="rda-tag">{a}</span>
-          ))}
+          <span className="rda-label"><Radio size={11} /> Anchors:</span>
+          {anchorsUsed.map((a) => <span key={a} className="rda-tag">{a}</span>)}
         </div>
       )}
 
-      {/* ── Strongest signal note ── */}
-      {strongestDev && (
+      {strongest && (
         <p className="report-detail-insight">
-          Strongest signal: <strong>{strongestDev.ssid || strongestDev.mac}</strong> at{" "}
-          {strongestDev.rssi} dBm ({rssiLabel(strongestDev.rssi)})
-          {strongestDev.block_number != null ? `, Block ${strongestDev.block_number}` : ""}.
+          Strongest: <strong>{strongest.ssid || strongest.mac}</strong> at {strongest.rssi} dBm ({rssiLabel(strongest.rssi)})
+          {strongest.block_number != null ? `, Block ${strongest.block_number}` : ""}.
         </p>
       )}
 
-      {/* ── Per-block breakdown ── */}
+      {/* Export PDF button (appears once data is loaded) */}
+      {reportMeta && (
+        <button
+          onClick={() => printSessionReport(reportMeta, devices, commentsByMac)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", marginBottom: 12,
+            fontSize: 12, borderRadius: 6, cursor: "pointer",
+            background: "rgba(96,165,250,0.12)",
+            border: "1px solid rgba(96,165,250,0.3)",
+            color: "#60a5fa",
+          }}
+        >
+          <Printer size={12} /> Export PDF
+        </button>
+      )}
+
+      {/* Per-block breakdown */}
       {Object.entries(byBlock)
         .sort(([a], [b]) => Number(a) - Number(b))
         .map(([block, devs]) => (
           <div key={block} className="report-block-group">
             <div className="rbg-header">
-              <MapPin size={11} />
-              Block {block}
+              <MapPin size={11} />Block {block}
               <span className="rbg-count">{devs.length} device{devs.length !== 1 ? "s" : ""}</span>
             </div>
             <div className="rbg-devices">
-              {devs
-                .sort((a, b) => (b.rssi ?? -100) - (a.rssi ?? -100))
-                .map((d, i) => (
-                  <div key={i} className="rbg-device">
-                    <div className="rbg-device-main">
-                      <Wifi size={11} style={{ color: "#22c55e", flexShrink: 0 }} />
-                      <span className="rbg-ssid">{d.ssid || "(no SSID)"}</span>
-                      <span className="rbg-mac">{d.mac}</span>
-                    </div>
-                    <div className="rbg-device-meta">
-                      <span className="rbg-rssi">{d.rssi} dBm</span>
-                      {d.anchor_id && <span className="rbg-anchor">via {d.anchor_id}</span>}
-                      <span className="rbg-time">
-                        <Clock size={9} /> {fmtShortTime(d.created_at)}
-                      </span>
-                    </div>
-                    {d.note && <p className="rbg-note">Note: {d.note}</p>}
+              {devs.sort((a, b) => (b.rssi ?? -100) - (a.rssi ?? -100)).map((d, i) => (
+                <div key={i} className="rbg-device">
+                  <div className="rbg-device-main">
+                    <Wifi size={11} style={{ color: "#22c55e", flexShrink: 0 }} />
+                    <span className="rbg-ssid">{d.ssid || "(no SSID)"}</span>
+                    <span className="rbg-mac">{d.mac}</span>
                   </div>
-                ))}
+                  <div className="rbg-device-meta">
+                    <span className="rbg-rssi">{d.rssi} dBm</span>
+                    {d.anchor_id && <span className="rbg-anchor">via {d.anchor_id}</span>}
+                    <span className="rbg-time"><Clock size={9} /> {fmtShort(d.created_at)}</span>
+                  </div>
+                  {commentBlock(d.mac)}
+                </div>
+              ))}
             </div>
           </div>
         ))}
 
-      {/* ── Unlocated ── */}
+      {/* Unlocated */}
       {unlocated.length > 0 && (
         <div className="report-block-group">
           <div className="rbg-header">
-            <MapPin size={11} style={{ color: "#6b7280" }} />
-            Unlocated devices
+            <MapPin size={11} style={{ color: "#6b7280" }} />Unlocated
             <span className="rbg-count">{unlocated.length}</span>
           </div>
           <div className="rbg-devices">
@@ -177,8 +314,8 @@ function ReportDetail({ sessionId }) {
                 </div>
                 <div className="rbg-device-meta">
                   <span className="rbg-rssi">{d.rssi} dBm</span>
-                  {d.anchor_id && <span className="rbg-anchor">via {d.anchor_id}</span>}
                 </div>
+                {commentBlock(d.mac)}
               </div>
             ))}
           </div>
@@ -188,42 +325,203 @@ function ReportDetail({ sessionId }) {
   );
 }
 
-// ── Main view ────────────────────────────────────────────────
+// ── Exam-level report card ────────────────────────────────────
+function ExamReportCard({ exam, emailMap = {} }) {
+  const [open, setOpen] = useState(false);
+  const teacherEmail = emailMap[exam.teacher_id] || "—";
+  const sessions     = exam.sessions_breakdown || [];
+
+  return (
+    <div className="report-card-v2">
+      {/* Header */}
+      <div className="rcv2-header">
+        <div className="rcv2-hall">
+          <span className="rcv2-hall-name">{exam.exam_title}</span>
+          {exam.course_name && <span className="rcv2-hall-loc">{exam.course_name}</span>}
+          <span className="rcv2-grid-badge">{exam.session_count} hall{exam.session_count !== 1 ? "s" : ""}</span>
+        </div>
+        <span className="rcv2-date">{fmtTime(exam.created_at)}</span>
+      </div>
+
+      {/* Teacher email (shown to admin) */}
+      {teacherEmail !== "—" && (
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+          Teacher: <span style={{ color: "#f5f5f5" }}>{teacherEmail}</span>
+        </div>
+      )}
+
+      {/* Time window */}
+      <div className="rcv2-meta">
+        <span className="rcv2-duration">
+          <Clock size={11} />
+          {fmtTime(exam.exam_start)} → {fmtTime(exam.exam_end)}
+        </span>
+      </div>
+
+      {/* Total detections */}
+      <div className="rcv2-stats">
+        <div className="rcv2-stat">
+          <Wifi size={12} />
+          <span className="rcv2-stat-val">{exam.total_detections}</span>
+          <span className="rcv2-stat-lbl">total detections across all halls</span>
+        </div>
+      </div>
+
+      {/* Action row */}
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        {sessions.length > 0 && (
+          <button className="rcv2-expand-btn" style={{ flex: 1 }} onClick={() => setOpen((o) => !o)}>
+            {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            {open ? "Hide halls" : `View ${sessions.length} hall${sessions.length !== 1 ? "s" : ""} breakdown`}
+          </button>
+        )}
+        <button
+          onClick={() => exportExamPDF(exam, emailMap)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+            background: "rgba(96,165,250,0.12)",
+            border: "1px solid rgba(96,165,250,0.3)",
+            color: "#60a5fa", whiteSpace: "nowrap",
+          }}
+        >
+          <Printer size={12} /> Export PDF
+        </button>
+      </div>
+
+      {/* Per-hall breakdown */}
+      {open && sessions.map((s, i) => {
+        const taEmail    = emailMap[s.ta_id] || s.ta_id?.slice(0, 8) || "—";
+        const hallComments = s.comments || [];
+        return (
+          <div key={i} style={{
+            marginTop: i === 0 ? 10 : 0, marginBottom: 6,
+            padding: "10px 12px",
+            background: "var(--bg-secondary, rgba(255,255,255,0.04))",
+            borderRadius: 6, border: "1px solid var(--border, rgba(255,255,255,0.08))",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Building2 size={12} style={{ color: "var(--text-muted)" }} />
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{s.hall_name || "Unknown"}</span>
+                {s.hall_code && (
+                  <span style={{ fontFamily: "monospace", fontSize: 11, color: "#60a5fa" }}>[{s.hall_code}]</span>
+                )}
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {s.total_detections} detections
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 2px" }}>TA: {taEmail}</p>
+            {s.hall_location && <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 4px" }}>{s.hall_location}</p>}
+            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 6px" }}>
+              <Clock size={9} style={{ verticalAlign: "middle" }} />{" "}
+              {fmtTime(s.started_at)} → {fmtTime(s.ended_at)}
+              {s.started_at && s.ended_at ? ` (${duration(s.started_at, s.ended_at)})` : ""}
+            </p>
+
+            {hallComments.length > 0 ? (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, fontSize: 11, color: "#facc15" }}>
+                  <MessageSquare size={10} />
+                  <span>{hallComments.length} comment{hallComments.length !== 1 ? "s" : ""}</span>
+                </div>
+                {hallComments.map((c, ci) => (
+                  <div key={ci} style={{
+                    display: "flex", alignItems: "flex-start", gap: 6,
+                    padding: "5px 8px", marginBottom: 4, fontSize: 11,
+                    background: "rgba(250,204,21,0.07)",
+                    borderLeft: "2px solid #facc15", borderRadius: "0 4px 4px 0",
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ color: "#f5f5f5" }}>{c.comment}</span>
+                      {c.ssid && <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>{c.ssid} ({c.mac})</span>}
+                      {c.block != null && <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>Block {c.block}</span>}
+                    </div>
+                    <span style={{ color: "var(--text-muted)", whiteSpace: "nowrap", fontSize: 10 }}>
+                      {c.author} · {fmtShort(c.written_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>No comments recorded.</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main view ─────────────────────────────────────────────────
 export default function ReportsView() {
   const { isAdmin, isTeacher, isTA } = useRoleContext();
-  const [reports, setReports]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [expanded, setExpanded] = useState(null);
+
+  // Admin: locked to "exam" tab; TA: locked to "session"; Teacher: can switch
+  const [tab,         setTab]         = useState(isAdmin ? "exam" : "session");
+  const [reports,     setReports]     = useState([]);
+  const [examReports, setExamReports] = useState([]);
+  const [emailMap,    setEmailMap]    = useState({}); // userId → email
+  const [loading,     setLoading]     = useState(true);
+  const [expanded,    setExpanded]    = useState(null);
+
+  // Sync tab when role resolves (admin may render before role is confirmed)
+  useEffect(() => { if (isAdmin) setTab("exam"); }, [isAdmin]);
 
   const fetchReports = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("reports")
-      .select(`
-        id, session_id, total_detections,
-        started_at, ended_at, created_at, course_name,
-        halls(id, name, location, rows, columns)
-      `)
-      .order("created_at", { ascending: false });
 
-    if (!error) setReports(data || []);
+    const fetches = [
+      // Per-session reports (not needed for admin)
+      isAdmin
+        ? Promise.resolve({ data: [] })
+        : supabase
+            .from("reports")
+            .select(`
+              id, session_id, exam_id,
+              total_detections, started_at, ended_at, created_at, course_name,
+              halls(id, name, location, rows, columns, hall_code)
+            `)
+            .order("created_at", { ascending: false }),
+
+      // Exam-level reports (admin + teacher only)
+      (isAdmin || isTeacher)
+        ? supabase.from("exam_report").select("*").order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+    ];
+
+    const [{ data: sessionData }, { data: examData }] = await Promise.all(fetches);
+
+    setReports(sessionData || []);
+    setExamReports(examData || []);
+
+    // Resolve user emails for admin & teacher to display in exam cards + PDFs
+    if (isAdmin || isTeacher) {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+      const map = {};
+      for (const u of usersData?.users || []) map[u.id] = u.email;
+      setEmailMap(map);
+    }
+
     setLoading(false);
   };
 
   useEffect(() => { fetchReports(); }, []);
 
-  const who = isAdmin ? "All reports" : isTeacher ? "Reports for your halls" : "Your reports";
-
-  const toggleExpand = (id) => setExpanded((prev) => (prev === id ? null : id));
+  const toggleExpand = (id) => setExpanded((p) => (p === id ? null : id));
 
   return (
     <div className="am-page">
+      {/* Header */}
       <div className="am-top-bar">
         <div className="am-top-bar-left">
           <div className="am-icon-circle"><FileText size={18} /></div>
           <div>
             <h2 className="am-title">Reports</h2>
-            <p className="am-subtitle">{who}</p>
+            <p className="am-subtitle">
+              {isAdmin ? "All exam reports" : isTeacher ? "Your exam reports" : "Your session reports"}
+            </p>
           </div>
         </div>
         <button className="am-refresh-btn" onClick={fetchReports} disabled={loading}>
@@ -231,78 +529,129 @@ export default function ReportsView() {
         </button>
       </div>
 
+      {/* Tab switcher — teachers only (admin locked to exam, TA locked to session) */}
+      {isTeacher && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
+          {[
+            { key: "session", label: "Per Hall",  icon: <Building2 size={13} /> },
+            { key: "exam",    label: "By Exam",   icon: <BookOpen  size={13} /> },
+          ].map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "7px 14px", fontSize: 13, borderRadius: 6,
+                fontWeight: tab === key ? 600 : 400, cursor: "pointer",
+                border: `1px solid ${tab === key ? "var(--accent, #60a5fa)" : "var(--border, rgba(255,255,255,0.1))"}`,
+                background: tab === key ? "rgba(96,165,250,0.12)" : "transparent",
+                color: tab === key ? "var(--accent, #60a5fa)" : "var(--text-muted)",
+              }}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
-        <div className="am-loading" style={{ marginTop: 40 }}><Loader2 size={24} className="spinning" /></div>
-      ) : reports.length === 0 ? (
-        <div className="detections-empty" style={{ marginTop: 20 }}>
-          <div className="detections-empty-icon">
-            <FileText style={{ width: 30, height: 30, color: "#6b7280" }} />
+        <div className="am-loading" style={{ marginTop: 40 }}>
+          <Loader2 size={24} className="spinning" />
+        </div>
+
+      ) : tab === "exam" ? (
+        /* ── By Exam tab ── */
+        examReports.length === 0 ? (
+          <div className="detections-empty" style={{ marginTop: 20 }}>
+            <div className="detections-empty-icon">
+              <BookOpen style={{ width: 30, height: 30, color: "#6b7280" }} />
+            </div>
+            <h3>No exam reports yet</h3>
+            <p>Reports appear once TAs end their sessions.</p>
           </div>
-          <h3>No reports yet</h3>
-          <p>Reports are generated when a TA ends a session.</p>
-        </div>
+        ) : (
+          <div className="reports-list">
+            {examReports.map((ex) => (
+              <ExamReportCard key={ex.exam_id} exam={ex} emailMap={emailMap} />
+            ))}
+          </div>
+        )
+
       ) : (
-        <div className="reports-list">
-          {reports.map((r) => {
-            const isOpen = expanded === r.id;
-            return (
-              <div key={r.id} className="report-card-v2">
-                {/* ── Header row ── */}
-                <div className="rcv2-header">
-                  <div className="rcv2-hall">
-                    <span className="rcv2-hall-name">{r.halls?.name || "Unknown hall"}</span>
-                    {r.halls?.location && (
-                      <span className="rcv2-hall-loc">{r.halls.location}</span>
-                    )}
-                    {r.halls && (
-                      <span className="rcv2-grid-badge">
-                        {r.halls.rows}×{r.halls.columns}
-                      </span>
-                    )}
+        /* ── Per Hall tab (teacher + TA) ── */
+        reports.length === 0 ? (
+          <div className="detections-empty" style={{ marginTop: 20 }}>
+            <div className="detections-empty-icon">
+              <FileText style={{ width: 30, height: 30, color: "#6b7280" }} />
+            </div>
+            <h3>No reports yet</h3>
+            <p>Reports are generated when a TA ends a session.</p>
+          </div>
+        ) : (
+          <div className="reports-list">
+            {reports.map((r) => {
+              const isOpen = expanded === r.id;
+              const meta   = {
+                courseName: r.course_name,
+                hallName:   r.halls?.name,
+                hallCode:   r.halls?.hall_code,
+                examTitle:  null,
+                startedAt:  r.started_at,
+                endedAt:    r.ended_at,
+              };
+              return (
+                <div key={r.id} className="report-card-v2">
+                  <div className="rcv2-header">
+                    <div className="rcv2-hall">
+                      <span className="rcv2-hall-name">{r.halls?.name || "Unknown hall"}</span>
+                      {r.halls?.location && <span className="rcv2-hall-loc">{r.halls.location}</span>}
+                      {r.halls && (
+                        <span className="rcv2-grid-badge">{r.halls.rows}×{r.halls.columns}</span>
+                      )}
+                      {r.halls?.hall_code && (
+                        <span className="rcv2-grid-badge" style={{ fontFamily: "monospace", color: "#60a5fa" }}>
+                          {r.halls.hall_code}
+                        </span>
+                      )}
+                    </div>
+                    <span className="rcv2-date">{fmtTime(r.created_at)}</span>
                   </div>
-                  <span className="rcv2-date">{fmtTime(r.created_at)}</span>
-                </div>
 
-                {/* ── Course + duration ── */}
-                <div className="rcv2-meta">
-                  {r.course_name && (
-                    <span className="rcv2-course">{r.course_name}</span>
+                  <div className="rcv2-meta">
+                    {r.course_name && <span className="rcv2-course">{r.course_name}</span>}
+                    <span className="rcv2-duration">
+                      <Clock size={11} />
+                      {fmtTime(r.started_at)} → {fmtTime(r.ended_at)}
+                      &nbsp;({duration(r.started_at, r.ended_at)})
+                    </span>
+                  </div>
+
+                  <div className="rcv2-stats">
+                    <div className="rcv2-stat">
+                      <Wifi size={12} />
+                      <span className="rcv2-stat-val">{r.total_detections}</span>
+                      <span className="rcv2-stat-lbl">detections recorded</span>
+                    </div>
+                  </div>
+
+                  {/* Expand / PDF row */}
+                  {r.session_id && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                      <button className="rcv2-expand-btn" style={{ flex: 1 }} onClick={() => toggleExpand(r.id)}>
+                        {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        {isOpen ? "Hide details" : "View detections & comments"}
+                      </button>
+                    </div>
                   )}
-                  <span className="rcv2-duration">
-                    <Clock size={11} />
-                    {fmtTime(r.started_at)} → {fmtTime(r.ended_at)}
-                    &nbsp;({duration(r.started_at, r.ended_at)})
-                  </span>
+
+                  {isOpen && r.session_id && (
+                    <ReportDetail sessionId={r.session_id} reportMeta={meta} />
+                  )}
                 </div>
-
-                {/* ── Counts ── */}
-                <div className="rcv2-stats">
-                  <div className="rcv2-stat">
-                    <Wifi size={12} />
-                    <span className="rcv2-stat-val">{r.total_detections}</span>
-                    <span className="rcv2-stat-lbl">detections recorded</span>
-                  </div>
-                </div>
-
-                {/* ── Expand toggle ── */}
-                {r.session_id && (
-                  <button
-                    className="rcv2-expand-btn"
-                    onClick={() => toggleExpand(r.id)}
-                  >
-                    {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {isOpen ? "Hide device details" : "View device details"}
-                  </button>
-                )}
-
-                {/* ── Expanded detail ── */}
-                {isOpen && r.session_id && (
-                  <ReportDetail sessionId={r.session_id} />
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );

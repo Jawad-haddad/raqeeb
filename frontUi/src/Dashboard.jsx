@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import WhitelistForm from "./whitelist";
 import AccountManager from "./AccountManager";
+import AccountSettings from "./AccountSettings";
 import HallsManager from "./HallsManager";
 import SessionsView from "./SessionsView";
 import ReportsView from "./ReportsView";
@@ -8,10 +9,9 @@ import TAHallView from "./TAHallView";
 import { useRoleContext } from "./RoleContext";
 import {
   Radio, Activity, LogOut,
-  Users, Building2, FileText, ClipboardList,
+  Users, Building2, FileText, ClipboardList, Settings,
 } from "lucide-react";
 
-// ── Role label ───────────────────────────────────────────────
 function roleLabel(role) {
   if (role === "admin")   return "Admin";
   if (role === "teacher") return "Teacher";
@@ -19,22 +19,24 @@ function roleLabel(role) {
   return role || "User";
 }
 
-// ── Nav config per role ──────────────────────────────────────
 function navItems(role) {
   if (role === "admin") return [
-    { id: "sessions",   label: "Sessions",     Icon: Activity },
-    { id: "halls",      label: "Halls",        Icon: Building2 },
-    { id: "accounts",   label: "Accounts",     Icon: Users },
-    { id: "reports",    label: "Reports",      Icon: FileText },
+    { id: "sessions",  label: "Sessions",   Icon: Activity },
+    { id: "halls",     label: "Halls",      Icon: Building2 },
+    { id: "accounts",  label: "Accounts",   Icon: Users },
+    { id: "reports",   label: "Reports",    Icon: FileText },
+    { id: "settings",  label: "Settings",   Icon: Settings },
   ];
   if (role === "teacher") return [
-    { id: "sessions",   label: "Sessions",     Icon: Activity },
-    { id: "accounts",   label: "Manage TAs",   Icon: Users },
-    { id: "reports",    label: "Reports",      Icon: FileText },
+    { id: "sessions",  label: "Sessions",   Icon: Activity },
+    { id: "accounts",  label: "Manage TAs", Icon: Users },
+    { id: "reports",   label: "Reports",    Icon: FileText },
+    { id: "settings",  label: "Settings",   Icon: Settings },
   ];
   // TA
   return [
     { id: "ta-session", label: "My Session", Icon: ClipboardList },
+    { id: "settings",   label: "Settings",   Icon: Settings },
   ];
 }
 
@@ -44,15 +46,13 @@ function defaultView(role) {
   return "ta-session";
 }
 
-// ── Main Dashboard ───────────────────────────────────────────
 export default function Dashboard({ onLogout, userEmail }) {
-  const { role, isAdmin, isTeacher, isTA } = useRoleContext();
+  const { role, isAdmin, isTeacher } = useRoleContext();
   const [view, setView] = useState(() => defaultView(role));
 
-  // Reset view when role resolves
   useEffect(() => { if (role) setView(defaultView(role)); }, [role]);
 
-  const items = navItems(role);
+  const items        = navItems(role);
   const avatarLetter = (userEmail || "U")[0].toUpperCase();
   const showWhitelist = isAdmin || isTeacher;
 
@@ -63,6 +63,7 @@ export default function Dashboard({ onLogout, userEmail }) {
       case "accounts":   return <AccountManager />;
       case "reports":    return <ReportsView />;
       case "ta-session": return <TAHallView />;
+      case "settings":   return <AccountSettings userEmail={userEmail} />;
       default:           return null;
     }
   };

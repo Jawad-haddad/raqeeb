@@ -2,13 +2,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabase";
 import { getDetectionsFromSupabase } from "../data-utils";
 import HallGrid from "./HallGrid";
-import { Building2, Play, Square, Loader2, Clock, BookOpen, Radio } from "lucide-react";
+import { Building2, Play, Square, Loader2, Clock, BookOpen, Radio, ChevronRight } from "lucide-react";
 
 function fmtTime(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleString();
 }
-
 function countdown(target) {
   const diff = new Date(target) - Date.now();
   if (diff <= 0) return null;
@@ -19,29 +18,42 @@ function countdown(target) {
 }
 
 export default function TAHallView() {
-  const [session,      setSession]      = useState(undefined); // undefined = loading
-  const [detections,   setDetections]   = useState([]);
-  const [loadingDet,   setLoadingDet]   = useState(false);
-  const [starting,     setStarting]     = useState(false);
-  const [ending,       setEnding]       = useState(false);
-  const [error,        setError]        = useState("");
-  const [tick,         setTick]         = useState(0);   // for countdown re-renders
+  // allSessions: undefined = loading, [] = none found
+  const [allSessions, setAllSessions] = useState(undefined);
+  const [session,     setSession]     = useState(null); // the currently active/selected session
+  const [detections,  setDetections]  = useState([]);
+  const [loadingDet,  setLoadingDet]  = useState(false);
+  const [starting,    setStarting]    = useState(false);
+  const [ending,      setEnding]      = useState(false);
+  const [error,       setError]       = useState("");
+  const [tick,        setTick]        = useState(0);
 
   const prevDataRef = useRef([]);
 
-  // ── Bootstrap: fetch TA's current session ────────────────
+  // ── Bootstrap: fetch all pending/active sessions for this TA ─
   useEffect(() => {
     (async () => {
-      const { data: sess } = await supabase
+      const { data: sessions } = await supabase
         .from("sessions")
         .select(`
-          id, status, course_name, exam_start, exam_end,
+          id, status, exam_id, course_name, exam_start, exam_end,
           actual_started_at, actual_ended_at, teacher_id,
           halls(id, name, location, rows, columns, anchor_ref)
         `)
         .in("status", ["pending", "active"])
-        .maybeSingle();
-      setSession(sess || null);
+        .order("exam_start", { ascending: true });
+
+      const rows = sessions || [];
+      setAllSessions(rows);
+
+      // Auto-select if there is exactly one session or an active one
+      const active = rows.find((s) => s.status === "active");
+      if (active) {
+        setSession(active);
+      } else if (rows.length === 1) {
+        setSession(rows[0]);
+      }
+      // If multiple pending → leave session=null → show picker
     })();
   }, []);
 
@@ -51,7 +63,7 @@ export default function TAHallView() {
     return () => clearInterval(iv);
   }, []);
 
-  // ── Auto-end when exam_end passes ────────────────────────
+  // ── Auto-end when exam window closes ─────────────────────
   useEffect(() => {
     if (session?.status === "active" && session.exam_end) {
       if (new Date(session.exam_end) <= new Date()) {
@@ -60,7 +72,7 @@ export default function TAHallView() {
     }
   }, [tick, session]);
 
-  // ── Fetch detections for active session ─────────────────
+  // ── Fetch detections for active session ──────────────────
   const fetchDetections = useCallback(async () => {
     if (!session || session.status !== "active") return;
     setLoadingDet(true);
@@ -70,10 +82,10 @@ export default function TAHallView() {
 
     const raw = await getDetectionsFromSupabase({ sessionId: session.id });
 
-    const norm = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
+    const norm     = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
     const filtered = (raw || []).filter((d) => !wlMAC.has(norm(d.mac)));
     const uniqueKey = (d) => norm(d.mac) || norm(d.ssid) || String(d.id ?? "");
-    const unique = Array.from(new Map(filtered.map((d) => [uniqueKey(d), d])).values());
+    const unique   = Array.from(new Map(filtered.map((d) => [uniqueKey(d), d])).values());
 
     setDetections(unique);
     prevDataRef.current = unique;
@@ -91,13 +103,20 @@ export default function TAHallView() {
   const startSession = async () => {
     setError("");
     setStarting(true);
+    const now = new Date().toISOString();
     const { error: err } = await supabase
       .from("sessions")
-      .update({ status: "active", actual_started_at: new Date().toISOString() })
+      .update({ status: "active", actual_started_at: now })
       .eq("id", session.id);
 
     if (err) { setError(err.message); }
-    else { setSession((s) => ({ ...s, status: "active", actual_started_at: new Date().toISOString() })); }
+    else {
+      setSession((s) => ({ ...s, status: "active", actual_started_at: now }));
+      // Remove this session from allSessions picker list too
+      setAllSessions((prev) =>
+        (prev || []).map((s) => s.id === session.id ? { ...s, status: "active" } : s)
+      );
+    }
     setStarting(false);
   };
 
@@ -107,35 +126,34 @@ export default function TAHallView() {
     setEnding(true);
     const endedAt = new Date().toISOString();
 
-    // Count detections for this session
-    const { count: total }    = await supabase.from("espData").select("id", { count: "exact", head: true }).eq("session_id", session.id);
-    const { count: flagged }  = await supabase.from("espData").select("id", { count: "exact", head: true }).eq("session_id", session.id).eq("status", "flagged");
-    const { count: resolved } = await supabase.from("espData").select("id", { count: "exact", head: true }).eq("session_id", session.id).eq("status", "resolved");
-    const { count: active }   = await supabase.from("espData").select("id", { count: "exact", head: true }).eq("session_id", session.id).eq("status", "active");
+    // Count total detections for this session
+    const { count: total } = await supabase
+      .from("espData")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", session.id);
 
-    // Close session
+    // Mark session ended
     await supabase.from("sessions").update({
-      status: "ended",
+      status:          "ended",
       actual_ended_at: endedAt,
     }).eq("id", session.id);
 
-    // Store report (linked to teacher, TA, hall, course)
+    // Insert report — exam_id links it to the exam-level aggregation view
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from("reports").insert({
       session_id:       session.id,
+      exam_id:          session.exam_id,
       hall_id:          session.halls?.id,
       teacher_id:       session.teacher_id,
       ta_id:            user.id,
       course_name:      session.course_name,
-      total_detections: total   || 0,
-      flagged_count:    flagged  || 0,
-      resolved_count:   resolved || 0,
-      active_count:     active   || 0,
+      total_detections: total || 0,
       started_at:       session.actual_started_at,
       ended_at:         endedAt,
     });
 
     setSession(null);
+    setAllSessions([]);
     setDetections([]);
     setEnding(false);
   };
@@ -144,32 +162,94 @@ export default function TAHallView() {
   const handleUpdated = (upd) => setDetections((prev) => prev.map((d) => d.mac === upd.mac ? upd : d));
 
   // ── Loading ──────────────────────────────────────────────
-  if (session === undefined) {
+  if (allSessions === undefined) {
     return <div className="ta-view-center"><Loader2 size={28} className="spinning" /></div>;
   }
 
-  // ── No session ───────────────────────────────────────────
-  if (!session) {
+  // ── No sessions at all ───────────────────────────────────
+  if (allSessions.length === 0) {
     return (
       <div className="ta-view-center">
         <div className="ta-no-hall-card">
           <Building2 size={32} style={{ color: "var(--text-muted)", marginBottom: 12 }} />
           <h3>No Session Assigned</h3>
-          <p>Your teacher hasn't created a session for you yet. Check back later or contact your teacher.</p>
+          <p>Your teacher hasn't created a session for you yet. Check back later.</p>
         </div>
       </div>
     );
   }
 
-  const hall = session.halls;
+  // ── Multiple pending sessions — let TA pick which to open ─
+  const pendingSessions = allSessions.filter((s) => s.status === "pending");
+  if (!session && pendingSessions.length > 1) {
+    return (
+      <div className="ta-view-center">
+        <div className="ta-no-hall-card" style={{ maxWidth: 480, textAlign: "left" }}>
+          <BookOpen size={28} style={{ color: "#60a5fa", marginBottom: 12 }} />
+          <h3 style={{ marginBottom: 6 }}>Select a Session</h3>
+          <p style={{ marginBottom: 16, color: "var(--text-muted)" }}>
+            You have {pendingSessions.length} upcoming sessions. Select one to open it.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pendingSessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSession(s)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 14px",
+                  background: "var(--bg-secondary, rgba(255,255,255,0.05))",
+                  border: "1px solid var(--border, rgba(255,255,255,0.1))",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "inherit",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {s.halls?.name || "Unknown hall"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                    {s.course_name} · {fmtTime(s.exam_start)}
+                  </div>
+                </div>
+                <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Session selected ─────────────────────────────────────
+  if (!session) return null; // shouldn't happen
+
+  const hall      = session.halls;
   const isPending = session.status === "pending";
   const isActive  = session.status === "active";
-
-  const toStart = countdown(session.exam_start);
-  const toEnd   = countdown(session.exam_end);
+  const toStart   = countdown(session.exam_start);
+  const toEnd     = countdown(session.exam_end);
 
   return (
     <div style={{ padding: "20px 28px" }}>
+
+      {/* Back to session list (when multiple pending exist) */}
+      {pendingSessions.length > 1 && (
+        <button
+          onClick={() => setSession(null)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            marginBottom: 16, fontSize: 12, color: "var(--text-muted)",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+          }}
+        >
+          ← Back to session list
+        </button>
+      )}
 
       {/* Hall + course header */}
       <div className="ta-hall-header">
@@ -197,11 +277,10 @@ export default function TAHallView() {
         </div>
       </div>
 
-      {/* ── PENDING STATE ── */}
+      {/* ── PENDING ── */}
       {isPending && (
         <div className="ta-session-start-card">
           <h3 className="ta-session-start-title">Session not started</h3>
-
           {toStart ? (
             <p className="ta-session-start-sub">
               Exam starts in <strong style={{ color: "#facc15" }}>{toStart}</strong>.
@@ -212,9 +291,7 @@ export default function TAHallView() {
               Exam start time has passed — ready to begin.
             </p>
           )}
-
           {error && <p className="am-error" style={{ marginBottom: 12 }}>{error}</p>}
-
           <button className="ta-start-btn" onClick={startSession} disabled={starting}>
             {starting ? <Loader2 size={14} className="spinning" /> : <Play size={14} />}
             Start Session
@@ -222,7 +299,7 @@ export default function TAHallView() {
         </div>
       )}
 
-      {/* ── ACTIVE STATE ── */}
+      {/* ── ACTIVE ── */}
       {isActive && (
         <>
           <div className="ta-session-live-bar">
@@ -246,7 +323,6 @@ export default function TAHallView() {
             </button>
           </div>
 
-          {/* Hall grid */}
           <div style={{ marginTop: 16 }}>
             <div className="detections-header" style={{ marginBottom: 4, padding: "0 28px" }}>
               <h3 className="detections-title" style={{ padding: 0 }}>Detections this session</h3>
