@@ -80,6 +80,32 @@ jobs:
       # - name: Run AI Accuracy Tests
         # run: pytest tests/test_model_accuracy.py
 
+        #this is supposedly better
+      #  model_validation:
+ #   runs-on: ubuntu-latest
+  #  steps:
+   #   - uses: actions/checkout@v4
+
+   #   - name: Set up Python
+   #     uses: actions/setup-python@v5
+ #       with:
+        #  python-version: '3.12' # Matches your high-version requirement
+
+     # - name: Install dependencies
+      #  run: |
+       #   python -m pip install --upgrade pip
+        #  pip install pandas numpy scikit-learn scipy # Essential libs
+
+    #  - name: Run Preprocessing
+      #  run: python preprocess.py # Generates features_dataset.csv
+
+     # - name: Train and Validate Model
+      #  run: python model.py # Trains SVM & outputs accuracy
+
+    #  - name: Run Accuracy Threshold Check
+        # This custom script ensures your accuracy doesn't drop below your 82% average
+   #     run: pytest tests/test_model_requirements.py
+
 
 
 
