@@ -30,8 +30,8 @@ const fs = require('fs');
     });
 
     console.log('Step 1: Navigating to site...');
-    await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'domcontentloaded' });
-    //await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
+   // await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
     
     console.log('Step 2: Entering Credentials...');
     await page.waitForSelector('input[type="email"]');
