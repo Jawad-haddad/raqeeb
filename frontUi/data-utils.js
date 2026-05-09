@@ -24,19 +24,23 @@ export const getDetectionsFromSupabase = async ({ sessionId, fromTime, toTime, l
     const { data: fallback, error: fbErr } = await fbQuery;
     if (fbErr) { console.error("Supabase fetch error:", fbErr.message); return []; }
     return (fallback || []).map((row) => ({
-      mac: row.mac, anchor: row.anchor_id, ssid: row.ssid,
-      rssi: row.rssi, block: row.block_number,
-      created_at: null, session_id: null,
+      mac:          row.mac,
+      anchor_id:    row.anchor_id,
+      ssid:         row.ssid,
+      rssi:         row.rssi,
+      block_number: row.block_number,
+      created_at:   null,
+      session_id:   null,
     }));
   }
 
   return (data || []).map((row) => ({
-    mac:        row.mac,
-    anchor:     row.anchor_id,
-    ssid:       row.ssid,
-    rssi:       row.rssi,
-    block:      row.block_number,
-    created_at: row.created_at,
-    session_id: row.session_id,
+    mac:          row.mac,
+    anchor_id:    row.anchor_id,
+    ssid:         row.ssid,
+    rssi:         row.rssi,
+    block_number: row.block_number,
+    created_at:   row.created_at,
+    session_id:   row.session_id,
   }));
 };
