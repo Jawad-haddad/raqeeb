@@ -7,8 +7,8 @@ scipy==1.17.1
 
 # --- Web & API Layer ---
 # Handles ESP32 Bridge communication and JSON payloads
-flask
-flask-cors
+flask==6.0.0
+flask-cors==6.0.0
 
 # --- Database & Environment ---
 # Used for storing logs and Radio Map data
