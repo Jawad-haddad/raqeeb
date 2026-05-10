@@ -130,7 +130,7 @@ jobs:
 
       - name: Run JMeter Load Test
         run: |
-          jmeter -n -t ./raqeeb_test_plan.jmx \
+          jmeter -n -t testing/raqeeb_test_plan.jmx \
                -l results.jtl \
                -e -o ./reports/ \
                -Djava.net.preferIPv4Stack=true
