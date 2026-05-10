@@ -15,7 +15,7 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r testing/requirements.txt
 
       - name: Run Pytest
         run: |
@@ -43,7 +43,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install -g newman
-          pip install -r requirements.txt
+          pip install -r testing/requirements.txt
 
       - name: Start Server in Background
         env:
@@ -58,7 +58,7 @@ jobs:
 
       - name: Run Postman Collection
         run: |
-          newman run "./raqeeb_collection.json" \
+          newman run "testing/raqeeb_collection.json" \
           --env-var "base_url=http://localhost:5000" \
           --timeout-request 5000 \
           --bail
@@ -76,7 +76,7 @@ jobs:
        #  with:
        #    python-version: '3.11'
      #  - name: Install dependencies
-      #   run: pip install -r requirements.txt
+      #   run: pip install -r testing/requirements.txt
       # - name: Run AI Accuracy Tests
         # run: pytest tests/test_model_accuracy.py
 
