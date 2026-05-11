@@ -46,14 +46,14 @@ const fs = require('fs');
     console.log('Waiting for dashboard to load...');
     await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 30000 });
     
-    console.log('Step 4: Dashboard detected!');
+    /*console.log('Step 4: Dashboard detected!');
     await flow.startTimespan({ stepName: 'Dashboard Interaction' });
     await new Promise(resolve => setTimeout(resolve, 2000)); 
-    await flow.endTimespan();
-    /* console.log('Step 4: Monitoring Live Signal Performance...');
+    await flow.endTimespan();*/
+    console.log('Step 4: Monitoring Live Signal Performance...');
     await flow.startTimespan({ stepName: 'Live Data Feed Performance' });
     await new Promise(resolve => setTimeout(resolve, 10000)); 
-    await flow.endTimespan();*/
+    await flow.endTimespan();
 
     await flow.snapshot({ stepName: 'Final Dashboard State' });
 
@@ -67,11 +67,11 @@ const fs = require('fs');
     */
     
     const reportJson = JSON.parse(await flow.generateReport('json'));
-    /*
+    /**/
     const liveStep = reportJson.steps.find(s => s.name === 'Live Data Feed Performance');
     const tbt = liveStep.lhr.audits['total-blocking-time'].displayValue;
     console.log(`Live Feed Blocking Time: ${tbt}`);
-    */
+    /**/
     const perfScore = reportJson.steps[0].lhr.categories.performance.score;
     console.log(`Audit Complete. Performance Score: ${Math.round(perfScore * 100)}`);
 
