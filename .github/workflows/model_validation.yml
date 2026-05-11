@@ -34,3 +34,12 @@ jobs:
       - name: Logic Unit Testing
         # Fails the build if your average accuracy drops below 82.2%
         run: pytest ai_model/test_model_requirements.py
+
+      - name: Upload AI Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-validation-results
+          path: |
+            models.pkl
+            features_dataset.csv
