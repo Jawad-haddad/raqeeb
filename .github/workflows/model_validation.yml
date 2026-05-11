@@ -19,18 +19,18 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: # Step 1: Feature Extraction
+      - name: Feature Extraction
         # Processes your 4 rounds into 25 features
         run: python preprocess.py 
 
-      - name: # Step 2: SVM Training & Evaluation
+      - name: SVM Training & Evaluation
         # Performs 75/25 temporal split and trains the SVM
         run: python model.py 
 
-      - name: # Step 3: 36-Combination System Audit
+      - name: 36-Combination System Audit
         # Tests all 12 blocks × 3 conditions automatically
         run: python test.py 
 
-      - name: # Step 4: Logic Unit Testing
+      - name: Logic Unit Testing
         # Fails the build if your average accuracy drops below 82.2%
         run: pytest ai_model/test_model_requirements.py
