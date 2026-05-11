@@ -1,39 +1,36 @@
- # model_validation:
-    # runs-on: ubuntu-latest
-    # steps:
-     #  - uses: actions/checkout@v4
-      # - name: Set up Python
-      #   uses: actions/setup-python@v5
-       #  with:
-       #    python-version: '3.11'
-     #  - name: Install dependencies
-      #   run: pip install -r testing/requirements.txt
-      # - name: Run AI Accuracy Tests
-        # run: pytest tests/test_model_accuracy.py
+name: AI Model Validation Audit
 
-        #this is supposedly better
-      #  model_validation:
- #   runs-on: ubuntu-latest
-  #  steps:
-   #   - uses: actions/checkout@v4
+on: [push, pull_request]
 
-   #   - name: Set up Python
-   #     uses: actions/setup-python@v5
- #       with:
-        #  python-version: '3.12' # Matches your high-version requirement
+jobs:
+  validate_localization:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-     # - name: Install dependencies
-      #  run: |
-       #   python -m pip install --upgrade pip
-        #  pip install pandas numpy scikit-learn scipy # Essential libs
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    #  - name: Run Preprocessing
-      #  run: python preprocess.py # Generates features_dataset.csv
+      - name: Install dependencies
+        # Uses your requirements.txt with scikit-learn 1.8.0
+        run: |
+          pip install -r requirements.txt
 
-     # - name: Train and Validate Model
-      #  run: python model.py # Trains SVM & outputs accuracy
+      - name: # Step 1: Feature Extraction
+        # Processes your 4 rounds into 25 features
+        run: python preprocess.py 
 
-    #  - name: Run Accuracy Threshold Check
-        # This custom script ensures your accuracy doesn't drop below your 82% average
-   #     run: pytest tests/test_model_requirements.py
+      - name: # Step 2: SVM Training & Evaluation
+        # Performs 75/25 temporal split and trains the SVM
+        run: python model.py 
 
+      - name: # Step 3: 36-Combination System Audit
+        # Tests all 12 blocks × 3 conditions automatically
+        run: python test.py 
+
+      - name: # Step 4: Logic Unit Testing
+        # Fails the build if your average accuracy drops below 82.2%
+        run: pytest ai_model/test_model_requirements.py
