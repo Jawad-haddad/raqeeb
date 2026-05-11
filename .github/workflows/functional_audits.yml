@@ -66,12 +66,3 @@ jobs:
       - name: Debug Server on Failure
         if: failure()
         run: cat server.log
-
-
-
-
-
-
-
-
-        
