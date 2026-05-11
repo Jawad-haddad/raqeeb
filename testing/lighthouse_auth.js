@@ -59,12 +59,17 @@ const fs = require('fs');
 
     const reportHtml = await flow.generateReport();
     fs.writeFileSync('lh-report.html', reportHtml);
-    /*
-    const signalExists = await page.$('.signal-indicator'); // Change this to your actual CSS class
+    
+    const signalExists = await page.$('.status-card'); 
     if (!signalExists) {
-      throw new Error('Dashboard loaded, but Live Signal Indicator is missing.');
+    throw new Error('Dashboard loaded, but the Live Status Card is missing.');
     }
-    */
+
+
+    const sidebarStatus = await page.$eval('.sidebar-subtitle', el => el.innerText);
+    if (!sidebarStatus.includes('Live detection')) {
+    throw new Error('Sidebar loaded, but Live detection status is missing.');
+    }
     
     const reportJson = JSON.parse(await flow.generateReport('json'));
     /**/
