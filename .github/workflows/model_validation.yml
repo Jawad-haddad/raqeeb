@@ -15,24 +15,19 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        # Uses your requirements.txt with scikit-learn 1.8.0
         run: |
           pip install -r requirements.txt
 
       - name: Feature Extraction
-        # Processes your 4 rounds into 25 features
         run: python preprocess.py 
 
       - name: SVM Training & Evaluation
-        # Performs 75/25 temporal split and trains the SVM
         run: python model.py 
 
       - name: 36-Combination System Audit
-        # Tests all 12 blocks × 3 conditions automatically
         run: python test.py 
 
       - name: Logic Unit Testing
-        # Fails the build if your average accuracy drops below 82.2%
         run: pytest ai_model/test_model_requirements.py
 
       - name: Upload AI Artifacts
