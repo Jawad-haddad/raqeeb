@@ -5,8 +5,10 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 
-DATA_FILE   = "features_dataset.csv"
-MODELS_FILE = "models.pkl"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DATA_FILE   = os.path.join(BASE_DIR, "features_dataset.csv")
+MODELS_FILE = os.path.join(BASE_DIR, "models.pkl")
 
 # Features used for block prediction
 FEATURE_COLS = [
