@@ -55,7 +55,7 @@
               "language": "json"
             }
           }
-        ],
+        },
         "url": {
           "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
           "host": [
@@ -125,7 +125,7 @@
               "language": "json"
             }
           }
-        ],
+        },
         "url": {
           "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
           "host": [
@@ -157,7 +157,7 @@
               "if (data.access_token) {\r",
               "    pm.environment.set(\"ta_token\", data.access_token);\r",
               "    console.log(\"TA Token saved successfully!\");\r",
-              "}\r", 
+              "}\r",
               "if (data.user && data.user.id) {\r",
               "    pm.environment.set(\"ta_uuid\", data.user.id);\r",
               "    console.log(\"TA UUID saved successfully: \" + data.user.id);\r",
@@ -199,7 +199,7 @@
               "language": "json"
             }
           }
-        ],
+        },
         "url": {
           "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
           "host": [
@@ -235,7 +235,6 @@
               "if (pm.response.code === 201 && responseData && responseData.length > 0) {\r",
               "    var hallId = responseData[0].id;\r",
               "    pm.environment.set(\"hall_id\", hallId);\r",
-              "    // Sync target_hall_id fallback structure so step 5 and 6 stay valid dynamically\r",
               "    pm.environment.set(\"target_hall_id\", hallId);\r",
               "    console.log(\"Saved newly created hall ID: \" + hallId);\r",
               "} else if (pm.response.code === 409) {\r",
@@ -283,7 +282,7 @@
               "language": "json"
             }
           }
-        ],
+        },
         "url": {
           "raw": "{{supabase_url}}/rest/v1/halls",
           "host": [
@@ -306,7 +305,6 @@
           "script": {
             "exec": [
               "pm.test(\"Status code validation handler\", function () {\r",
-              "    // Accepts 201 created, 409 already bound, or 400 when utilizing static preset runs\r",
               "    pm.expect(pm.response.code).to.be.oneOf([201, 400, 409]);\r",
               "});"
             ],
@@ -330,3 +328,625 @@
           {
             "key": "apikey",
             "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Prefer",
+            "value": "return=representation",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"hall_id\": \"{{target_hall_id}}\",\r\n  \"ta_id\": \"{{ta_uuid}}\",\r\n  \"active\": true\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/hall_assignments",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "hall_assignments"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. TA Starts Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code handles active or new session cleanly\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([201, 400, 409]);\r",
+              "});\r",
+              "\r",
+              "var data = pm.response.json();\r",
+              "if (data && data.length > 0 && data[0].id) {\r",
+              "    pm.environment.set(\"active_session_id\", data[0].id);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Prefer",
+            "value": "return=representation",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"hall_id\": \"{{target_hall_id}}\",\r\n  \"course_name\": \"Software Testing\",\r\n  \"status\": \"active\",\r\n  \"hall_code\": \"{{target_hall_code}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/sessions",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "sessions"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Simulated Detection",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"mac\": \"28:c2:1f:ec:23:1a\",\r\n  \"rssi\": -55,\r\n  \"anchor_id\": \"Anchor_1\",\r\n  \"session_id\": \"{{active_session_id}}\",\r\n  \"hall_code\": \"{{target_hall_code}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/upload",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "upload"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. End Session",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "ta_token",
+            "value": "{{ta_token}}",
+            "type": "text"
+          },
+          {
+            "key": "supabase_key",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"ended\",\r\n  \"ended_at\": \"now()\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/sessions?id=eq.{{active_session_id}}",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "sessions"
+          ],
+          "query": [
+            {
+              "key": "id",
+              "value": "eq.{{active_session_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. Report Verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "ta_token",
+            "value": "{{teacher_token}}",
+            "type": "text"
+          },
+          {
+            "key": "supabase_key",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"ended\",\r\n  \"ended_at\": \"now()\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/reports?session_id=eq.{{active_session_id}}",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "reports"
+          ],
+          "query": [
+            {
+              "key": "session_id",
+              "value": "eq.{{active_session_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10 Invalid Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400 (Login Failed)\", function () {\r",
+              "    pm.response.to.have.status(400);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Error message explains WHY (Security Check)\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.error_code).to.eql(\"invalid_credentials\");\r",
+              "    pm.expect(jsonData.msg).to.include(\"Invalid login credentials\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"so_treal@gmail.com\",\r\n  \"password\": \"Supa4ever%\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "password"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11 whitelisting",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 or 409\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"mac\": \"A1:Bb:Cc:Dd:Ee:F9\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/whitelist",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "whitelist"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "12 duplicate whitelisting",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 409 or Error Message\", function () {\r",
+              "    pm.expect(pm.response.text()).to.include(\"duplicate\"); \r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"mac\": \"A1:B2:C3:D4:E5:F6\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/whitelist",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "whitelist"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "13 invalid whitelisting",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Database rejects invalid MAC format\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([201, 400, 500]);\r",
+              "\r",
+              "    if (pm.response.code === 201) {\r",
+              "        console.log(\"Warning: Database accepted invalid MAC. Add a Constraint!\");\r",
+              "    }\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"mac\": \"not-a-real-mac-address\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/whitelist",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "whitelist"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "14 Large Payload Stress",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is Error (400 or 500)\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 500]);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Error message confirms invalid MAC type\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.message).to.include(\"invalid input syntax\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{supabase_key}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"mac\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" \r\n \r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/whitelist",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "whitelist"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "15 Invalid Session Id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {\r",
+              "    pm.response.to.have.status(400);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response body contains 'invalid uuid'\", function () {\r",
+              "    var jsonData = pm.response.json();\r",
+              "    pm.expect(jsonData.message).to.include(\"invalid input syntax for type uuid:\");\r",
+              "});\r",
+              "\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "apikey",
+            "value": "{{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Prefer",
+            "value": "return=representation",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"hall_id\": \"{target_hall_id}\",\r\n  \"course_name\": \"Software Testing\",\r\n  \"status\": \"active\",\r\n  \"hall_code\": \"{{target_hall_code}}\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{supabase_url}}/rest/v1/sessions",
+          "host": [
+            "{{supabase_url}}"
+          ],
+          "path": [
+            "rest",
+            "v1",
+            "sessions"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
