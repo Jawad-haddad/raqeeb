@@ -7,15 +7,15 @@ scipy==1.17.1
 
 # --- Web & API Layer ---
 # Handles ESP32 Bridge communication and JSON payloads
-flask>=3.0.0
-flask-cors>=4.0.0
+flask>=3.1.3
+flask-cors>=4.0.1
 
 # --- Database & Environment ---
 # Used for storing logs and Radio Map data
 supabase==2.4.0
 python-dotenv==1.0.1
 
-# --- Testing & Utils ----
+# --- Testing & Utils ---
 # Validates 12-block range and accuracy thresholds
 pytest==8.0.0
 statistics
