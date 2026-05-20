@@ -52,6 +52,11 @@ jobs:
         if: steps.node-cache.outputs.cache-hit != 'true'
         run: npm install lighthouse puppeteer
 
+        
+      - name: Ensure Chromium Binary is Installed
+        run: npx puppeteer browsers install chrome
+
+
       - name: Run Audit Script
         env:
           EMAIL: ${{ secrets.TEST_USER_EMAIL }}
