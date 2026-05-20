@@ -16,7 +16,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r testing/requirements.txt
 
       - name: Feature Extraction
         run: python preprocess.py 
