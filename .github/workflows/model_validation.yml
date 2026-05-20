@@ -27,6 +27,9 @@ jobs:
       - name: 36-Combination System Audit
         run: python ai_model/test.py 
 
+      - name: Generate AI Model Weights
+        run: python ai_model/train.py  # FIX: Trains the model to generate the missing models.pkl file
+
       - name: Logic Unit Testing
         run: pytest ai_model/test_model_requirements.py
 
