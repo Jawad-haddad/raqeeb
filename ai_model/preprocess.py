@@ -5,9 +5,12 @@ import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 
-WINDOW_SIZE_SECONDS = 10
-OUTPUT_FILE = "features_dataset.csv"
+# ── Dynamic Path Anchoring ───────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_FILE = os.path.join(BASE_DIR, "features_dataset.csv")
+# ────────────────────────────────────────────────────────────
 
+WINDOW_SIZE_SECONDS = 10
 
 def compute_csi_features(csi_string):
     """Extract 9 features from raw CSI subcarrier data."""
@@ -41,11 +44,14 @@ def process_data():
     print("=" * 50)
 
     print("\nScanning for CSV files in Round_* folders...")
-    all_files = glob.glob("Round_*/*.csv")
+    # Dynamically locate the Round folders relative to BASE_DIR
+    search_path = os.path.join(BASE_DIR, "Round_*", "*.csv")
+    all_files = glob.glob(search_path)
 
     if not all_files:
         print("ERROR: No CSV files found!")
-        print("Make sure Round_1, Round_2, Round_3 folders exist here.")
+        print(f"Expected path: {os.path.join(BASE_DIR, 'Round_*', '*.csv')}")
+        print("Make sure Round_1, Round_2, Round_3 folders exist inside the ai_model folder.")
         return
 
     print(f"Found {len(all_files)} files.\n")
