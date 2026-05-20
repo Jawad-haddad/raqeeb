@@ -236,9 +236,30 @@
               "    var hallId = responseData[0].id;\r",
               "    pm.environment.set(\"hall_id\", hallId);\r",
               "    pm.environment.set(\"target_hall_id\", hallId);\r",
+              "    pm.environment.set(\"target_hall_code\", \"HALL_TEST4\");\r",
               "    console.log(\"Saved newly created hall ID: \" + hallId);\r",
               "} else if (pm.response.code === 409) {\r",
-              "    console.log(\"Hall already exists (409). Keeping pre-existing environment configurations.\");\r",
+              "    console.log(\"Hall already exists (409). Fetching existing hall...\");\r",
+              "    var supabaseUrl = pm.environment.get(\"supabase_url\");\r",
+              "    var supabaseKey = pm.environment.get(\"supabase_key\");\r",
+              "    var adminToken = pm.environment.get(\"admin_token\");\r",
+              "    pm.sendRequest({\r",
+              "        url: supabaseUrl + \"/rest/v1/halls?hall_code=eq.HALL_TEST4&select=id,hall_code\",\r",
+              "        method: \"GET\",\r",
+              "        header: {\r",
+              "            \"apikey\": supabaseKey,\r",
+              "            \"Authorization\": \"Bearer \" + adminToken\r",
+              "        }\r",
+              "    }, function (err, res) {\r",
+              "        if (!err) {\r",
+              "            var halls = res.json();\r",
+              "            if (halls && halls.length > 0) {\r",
+              "                pm.environment.set(\"target_hall_id\", halls[0].id);\r",
+              "                pm.environment.set(\"target_hall_code\", halls[0].hall_code);\r",
+              "                console.log(\"Fetched existing hall ID: \" + halls[0].id);\r",
+              "            }\r",
+              "        }\r",
+              "    });\r",
               "}"
             ],
             "type": "text/javascript",
@@ -705,8 +726,12 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Status code is 409 or Error Message\", function () {\r",
-              "    pm.expect(pm.response.text()).to.include(\"duplicate\"); \r",
+              "pm.test(\"Status code is 409 (Duplicate Rejected)\", function () {\r",
+              "    pm.response.to.have.status(409);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response body contains duplicate error\", function () {\r",
+              "    pm.expect(pm.response.text()).to.include(\"duplicate\");\r",
               "});"
             ],
             "type": "text/javascript",
@@ -726,6 +751,11 @@
           {
             "key": "Authorization",
             "value": "Bearer {{supabase_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Prefer",
+            "value": "resolution=ignore-duplicates",
             "type": "text"
           }
         ],
