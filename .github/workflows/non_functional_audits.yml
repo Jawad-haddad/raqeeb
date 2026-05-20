@@ -143,7 +143,7 @@ jobs:
         key: jmeter-5.6.3-bin
 
     - name: Download JMeter Core Engine
-      if: steps.cache-jmeter.outputs.cache-hit != 'true'   # ← only download if not cached
+      if: steps.cache-jmeter.outputs.cache-hit != 'true'
       run: |
         wget -q https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
         tar -xzf apache-jmeter-5.6.3.tgz
@@ -151,37 +151,14 @@ jobs:
     - name: Add JMeter binaries to Execution PATH
       run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
 
-    - name: Create active session for load test
-      id: create-session
-      run: |
-        RESPONSE=$(curl -s -X POST \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/sessions" \
-          -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
-          -H "Content-Type: application/json" \
-          -H "Prefer: return=representation" \
-          -d '{"hall_id":"${{ secrets.LOAD_TEST_HALL_ID }}","course_name":"Load Test","status":"active","hall_code":"HALL_TEST4"}')
-        SESSION_ID=$(echo $RESPONSE | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-        echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
-
     - name: Run JMeter Load Test Engine
       run: |
         jmeter -n -t testing/raqeeb_test_plan.jmx \
           -l results.jtl \
           -e -o ./reports/ \
           -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
-          -Jsession_id="${{ steps.create-session.outputs.session_id }}" \
+          -Jsession_id="3680e72d-20c6-40f5-84fe-4b8517438387" \
           -Djava.net.preferIPv4Stack=true
-
-    - name: End load test session
-      if: always()
-      run: |
-        curl -s -X PATCH \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/sessions?id=eq.${{ steps.create-session.outputs.session_id }}" \
-          -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
-          -H "Content-Type: application/json" \
-          -d '{"status":"ended","ended_at":"now()"}'
 
     - name: Upload JMeter Dashboard Metrics
       if: always()
