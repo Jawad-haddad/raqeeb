@@ -19,7 +19,7 @@ jobs:
 
       - name: Run Pytest
         run: |
-          pytest test_server.py --junitxml=logic-report.xml
+          pytest testing/test_server.py --junitxml=logic-report.xml
 
       - name: Upload Logic Results
         if: always()
@@ -49,7 +49,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: nohup python server.py > server.log 2>&1 &
+        run: nohup python GP2/server.py > server.log 2>&1 &
         
       - name: Wait for Server (Health Check)
         run: |
