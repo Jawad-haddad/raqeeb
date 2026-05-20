@@ -7,7 +7,7 @@ scipy==1.17.1
 
 # --- Web & API Layer ---
 # Handles ESP32 Bridge communication and JSON payloads
-flask==6.0.0
+flask>=3.0.0
 flask-cors==6.0.0
 
 # --- Database & Environment ---
