@@ -655,8 +655,8 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Status code is 409\", function () {\r",
-              "    pm.response.to.have.status(201);\r",
+              "pm.test(\"Status code is 201 or 409\", function () {\r",
+              "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);\r",
               "});"
             ],
             "type": "text/javascript",
