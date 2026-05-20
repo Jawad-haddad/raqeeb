@@ -6,10 +6,13 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 
+# ── Dynamic Path Anchoring ───────────────────────────────────
+# This calculates the exact directory where model.py lives on disk
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_FILE   = os.path.join(BASE_DIR, "features_dataset.csv")
 MODELS_FILE = os.path.join(BASE_DIR, "models.pkl")
+# ────────────────────────────────────────────────────────────
 
 # Features used for block prediction
 FEATURE_COLS = [
@@ -223,7 +226,7 @@ def predict_block(rssi_s1, rssi_s2, rssi_s3, rssi_s4,
             Live RSSI readings from each sniffer (negative dBm values, e.g. -62.5)
 
     Optional arguments:
-        csi_*    CSI features from the same 10-second window (leave at 0 if unavailable)
+        csi_* CSI features from the same 10-second window (leave at 0 if unavailable)
         verbose  Set to False to suppress printed output
 
     Returns:
