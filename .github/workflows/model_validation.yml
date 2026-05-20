@@ -27,6 +27,21 @@ jobs:
         working-directory: ./ai_model
         run: python model.py
 
+      # Dynamic File Path Syncer & Debugger
+      - name: Verify and Link Generated Model Artifacts
+        run: |
+          echo "=== Scanning Workspace For Generated Files ==="
+          if [ -f models.pkl ]; then
+            echo "Found models.pkl in root directory. Syncing to ai_model folder..."
+            cp models.pkl ai_model/models.pkl
+          elif [ -f ai_model/models.pkl ]; then
+            echo "Found models.pkl natively inside ai_model folder."
+            cp ai_model/models.pkl ./
+          else
+            echo "Warning: models.pkl not detected in standard paths yet. Printing workspace map:"
+            ls -R
+          fi
+
       - name: 36-Combination System Audit
         working-directory: ./ai_model
         run: python test.py 
@@ -41,5 +56,7 @@ jobs:
         with:
           name: ai-validation-results
           path: |
+            models.pkl
+            features_dataset.csv
             ai_model/models.pkl
             ai_model/features_dataset.csv
