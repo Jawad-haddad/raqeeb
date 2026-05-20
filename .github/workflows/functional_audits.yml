@@ -18,8 +18,9 @@ jobs:
         run: pip install -r testing/requirements.txt
 
       - name: Run Pytest
-        run: |
-          pytest testing/test_server.py --junitxml=logic-report.xml
+        env:
+          PYTHONPATH: GP2  
+        run: pytest testing/test_server.py --junitxml=logic-report.xml
 
       - name: Upload Logic Results
         if: always()
