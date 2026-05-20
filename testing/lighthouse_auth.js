@@ -1,10 +1,9 @@
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer'); 
 const { startFlow } = require('lighthouse');
 const fs = require('fs');
 
 (async () => {
   const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
     headless: "new",
     args: [
       '--no-sandbox', 
@@ -29,7 +28,7 @@ const fs = require('fs');
       }
     });
 
-    console.log('Step 1: Navigating to site...');
+    console.log('Step 1: Navigating to landing portal...');
     await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
     
     console.log('Step 2: Entering Credentials...');
@@ -37,59 +36,58 @@ const fs = require('fs');
     await page.type('input[type="email"]', process.env.EMAIL || '');
     await page.type('input[type="password"]', process.env.PASSWORD || '');
     
-    console.log('Step 3: Clicking Login...');
-    await Promise.all([
-        page.waitForNavigation({ waitUntil: 'networkidle0' }), 
-        page.click('.login-button'),
-    ]);
+    console.log('Step 3: Triggering Authentication Client...');
+    await page.click('.login-button');
     
-    console.log('Waiting for dashboard to load...');
-    await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 30000 });
+    console.log('Step 4: Waiting for Dashboard UI routing to settle...');
     
-    /*console.log('Step 4: Dashboard detected!');
-    await flow.startTimespan({ stepName: 'Dashboard Interaction' });
-    await new Promise(resolve => setTimeout(resolve, 2000)); 
-    await flow.endTimespan();*/
-    console.log('Step 4: Monitoring Live Signal Performance...');
+    await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 35000 });
+    
+    console.log('Step 5: Monitoring Live Signal Feed Performance...');
     await flow.startTimespan({ stepName: 'Live Data Feed Performance' });
     await new Promise(resolve => setTimeout(resolve, 10000)); 
     await flow.endTimespan();
 
     await flow.snapshot({ stepName: 'Final Dashboard State' });
 
+    
     const reportHtml = await flow.generateReport();
     fs.writeFileSync('lh-report.html', reportHtml);
+    console.log('HTML Report saved successfully.');
+
     
     const signalExists = await page.$('.status-card'); 
     if (!signalExists) {
-    throw new Error('Dashboard loaded, but the Live Status Card is missing.');
+      throw new Error('Dashboard loaded, but the Live Status Card (.status-card) is missing.');
     }
-
 
     const sidebarStatus = await page.$eval('.sidebar-subtitle', el => el.innerText);
     if (!sidebarStatus.includes('Live detection')) {
-    throw new Error('Sidebar loaded, but Live detection status is missing.');
+      throw new Error(`Sidebar loaded, but expected status statement missing. Found: "${sidebarStatus}"`);
     }
     
-    const reportJson = JSON.parse(await flow.generateReport('json'));
-    /**/
+  
+    const reportJson = await flow.createFlowResult();
+    
     const liveStep = reportJson.steps.find(s => s.name === 'Live Data Feed Performance');
-    const tbt = liveStep.lhr.audits['total-blocking-time'].displayValue;
-    console.log(`Live Feed Blocking Time: ${tbt}`);
-    /**/
+    const tbt = liveStep.lhr.audits['total-blocking-time'].displayValue || '0 ms';
+    console.log(`Live Feed Total Blocking Time (TBT): ${tbt}`);
+    
     const perfScore = reportJson.steps[0].lhr.categories.performance.score;
-    console.log(`Audit Complete. Performance Score: ${Math.round(perfScore * 100)}`);
+    const cleanScore = Math.round(perfScore * 100);
+    console.log(`Audit Complete. Initial Navigation Performance Score: ${cleanScore}`);
 
     if (perfScore < 0.8) {
-      console.error(`FAILED: Score ${perfScore * 100} is below threshold.`);
+      console.error(`FAILED: Dashboard Performance Score (${cleanScore}) is below target threshold of 80.`);
       process.exit(1); 
     }
 
+    console.log('All pipeline frontend checks passed successfully.');
+
   } catch (error) {
-    console.error('CRITICAL ERROR:', error.message);
-    // CAPTURE SCREENSHOT ON FAILURE
+    console.error('CRITICAL PIPELINE EXCEPTION:', error.message);
     await page.screenshot({ path: 'error-screenshot.png', fullPage: true });
-    console.log('Error screenshot saved as error-screenshot.png');
+    console.log('Failure screenshot compiled: error-screenshot.png');
     process.exit(1);
   } finally {
     await browser.close();
