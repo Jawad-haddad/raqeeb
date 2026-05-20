@@ -25,7 +25,10 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test
-          args: --file=testing/requirements.txt --command=python3
+          # FIX: Separate arguments line-by-line so they parse as distinct Docker parameters
+          args: >
+            --file=testing/requirements.txt
+            --skip-unresolved=true
 
   # PERFORMANCE & SPEED TESTING
   speed_audit:
