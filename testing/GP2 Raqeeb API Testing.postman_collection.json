@@ -220,28 +220,33 @@
       },
       "response": []
     },
+   {
+  "name": "4. Create",
+  "event": [
     {
-      "name": "4. Create",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "var data = pm.response.json();\r",
-              "pm.environment.set(\"target_hall_id\", data[0].id);\r",
-              "pm.environment.set(\"target_hall_code\", data[0].hall_code);\r",
-              "\r",
-              "\r",
-              "pm.test(\"Status code is 201\", function () {\r",
-              "    pm.expect(pm.response.text()).to.include(\"id\"); \r",
-              "});"
-            ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
-          }
-        }
-      ],
+      "listen": "test",
+      "script": {
+        "exec": [
+          "pm.test(\"Status code is 201 or 409\", function () {\r",
+          "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);\r",
+          "});\r",
+          "\r",
+          "// Safely extract data only if the record was newly created or returned rows\r",
+          "var responseData = pm.response.json();\r",
+          "if (pm.response.code === 201 && responseData && responseData.length > 0) {\r",
+          "    var hallId = responseData[0].id;\r",
+          "    pm.environment.set(\"hall_id\", hallId);\r",
+          "    console.log(\"Saved newly created hall ID: \" + hallId);\r",
+          "} else if (pm.response.code === 409) {\r",
+          "    console.log(\"Hall already exists (409). Using pre-existing environment configurations.\");\r",
+          "}"
+        ],
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {}
+      }
+    }
+  ],
       "request": {
         "auth": {
           "type": "noauth"
