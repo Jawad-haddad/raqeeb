@@ -153,10 +153,13 @@ jobs:
       
       - name: Run JMeter Load Test Engine
         run: |
+          # Strip https:// and trailing slashes from the URL secret
+          CLEAN_URL=$(echo "${{ secrets.SUPABASE_URL }}" | sed 's|^https://||;s|/$||')
+          
           jmeter -n -t testing/raqeeb_test_plan.jmx \
             -l results.jtl \
             -e -o ./reports/ \
-            -Jsupabase_url="${{ secrets.SUPABASE_URL }}" \
+            -Jsupabase_url="$CLEAN_URL" \
             -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
             -Jsession_id="00000000-0000-0000-0000-000000000000" \
             -Djava.net.preferIPv4Stack=true
