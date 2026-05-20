@@ -58,8 +58,11 @@ jobs:
 
       - name: Run Postman Collection
         run: |
-          newman run "testing/raqeeb_collection.json" \
+          newman run "testing/GP2 Raqeeb API Testing.postman_collection.json" \
+          --environment "testing/GP2.postman_environment.json" \
           --env-var "base_url=http://localhost:5000" \
+          --env-var "supabase_url=${{ secrets.SUPABASE_URL }}" \
+          --env-var "supabase_key=${{ secrets.SUPABASE_KEY }}" \
           --timeout-request 5000 \
           --bail
           
