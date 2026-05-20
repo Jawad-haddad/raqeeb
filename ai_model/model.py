@@ -28,7 +28,6 @@ RSSI_COLS  = ['rssi_s1', 'rssi_s2', 'rssi_s3', 'rssi_s4']
 CONDITIONS = ['empty room', 'full room', 'half room moving']
 
 def _add_derived(df):
-    """Add relative RSSI and spread features."""
     df = df.copy()
     df['rssi_mean_all'] = df[RSSI_COLS].mean(axis=1)
     for c in RSSI_COLS:
@@ -38,7 +37,6 @@ def _add_derived(df):
     return df
 
 def _temporal_split(group_df, train_ratio=0.75):
-    """Split by TIME ORDER to prevent leaking consecutive window frames."""
     train_idx, test_idx = [], []
     for (_, _2), grp in group_df.groupby(['block', 'label']):
         idx = grp.index.tolist()
@@ -48,7 +46,6 @@ def _temporal_split(group_df, train_ratio=0.75):
     return group_df.loc[train_idx], group_df.loc[test_idx]
 
 def _augment(train_df, n_copies=8, noise_std=1.5):
-    """Augment data using random Gaussian RSSI variance."""
     aug = [train_df]
     for _ in range(n_copies):
         noisy = train_df.copy()
@@ -69,13 +66,11 @@ def train_models():
     print("  MODEL.PY — Training localization models")
     print("=" * 56)
 
-    print(f"\nLoading {DATA_FILE}...")
-    try:
-        df = pd.read_csv(DATA_FILE)
-    except FileNotFoundError:
-        print(f"ERROR: {DATA_FILE} not found. Run preprocess.py first!")
-        return
+    # CRITICAL CHANGE: Using raise instead of return to stop the pipeline
+    if not os.path.exists(DATA_FILE):
+        raise FileNotFoundError(f"CRITICAL: {DATA_FILE} not found. Ensure preprocess.py generated it.")
 
+    df = pd.read_csv(DATA_FILE)
     df['label'] = df['label'].replace({'half full moving': 'half room moving'})
     df = _add_derived(df)
     feature_cols = _get_available_features(df)
@@ -87,21 +82,17 @@ def train_models():
     train_df, test_df = _temporal_split(df)
     train_aug = _augment(train_df)
 
-    # ── Stage 1: Room Condition ───────────────────────────
     cond_model = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
     cond_model.fit(train_aug[COND_FEATS], train_aug['cond_enc'])
 
-    # ── Stage 2: Block Models ─────────────────────────────
     block_models = {}
     for condition in CONDITIONS:
         sub = train_aug[train_aug['label'] == condition]
-        if sub.empty:
-            continue
+        if sub.empty: continue
         model = SVC(kernel='rbf', C=10, gamma='scale', class_weight='balanced', probability=True, random_state=42)
         model.fit(sub[feature_cols], sub['block_enc'])
         block_models[condition] = model
 
-    # ── Save Pipeline ─────────────────────────────────────
     with open(MODELS_FILE, 'wb') as f:
         pickle.dump({
             'cond_model':    cond_model,
@@ -114,11 +105,8 @@ def train_models():
     print(f"\nSaved to {MODELS_FILE}\n")
 
 def predict_block(rssi_s1, rssi_s2, rssi_s3, rssi_s4, verbose=True, **kwargs):
-    try:
-        with open(MODELS_FILE, 'rb') as f:
-            saved = pickle.load(f)
-    except FileNotFoundError:
-        return None, 0.0, None
+    with open(MODELS_FILE, 'rb') as f:
+        saved = pickle.load(f)
 
     cond_model, block_models = saved['cond_model'], saved['block_models']
     le_block, le_cond = saved['label_encoder'], saved['cond_encoder']
@@ -145,8 +133,7 @@ def predict_block(rssi_s1, rssi_s2, rssi_s3, rssi_s4, verbose=True, **kwargs):
         'pos_front_back': (abs_s[0]+abs_s[1]) / (abs_s[2]+abs_s[3]) if (abs_s[2]+abs_s[3]) != 0 else 0.0,
     }
     for k in FEATURE_COLS:
-        if k not in all_feats:
-            all_feats[k] = kwargs.get(k, 0.0)
+        if k not in all_feats: all_feats[k] = kwargs.get(k, 0.0)
 
     X = pd.DataFrame([all_feats])[feature_cols]
     pred_enc = block_models[condition].predict(X)[0]
