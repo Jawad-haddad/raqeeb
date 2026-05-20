@@ -19,13 +19,13 @@ jobs:
           pip install -r testing/requirements.txt
 
       - name: Feature Extraction
-        run: python preprocess.py 
+        run: python ai_model/preprocess.py
 
       - name: SVM Training & Evaluation
-        run: python model.py 
+        run: python ai_model/model.py
 
       - name: 36-Combination System Audit
-        run: python test.py 
+        run: python ai_model/test.py 
 
       - name: Logic Unit Testing
         run: pytest ai_model/test_model_requirements.py
