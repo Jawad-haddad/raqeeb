@@ -5,16 +5,9 @@ on: [push, pull_request]
 jobs:
   validate_localization:
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: ai_model
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          path: '' 
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,18 +17,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r ../testing/requirements.txt
+          pip install -r testing/requirements.txt
 
       - name: Feature Extraction
+        working-directory: ./ai_model
         run: python preprocess.py
 
       - name: SVM Training & Model Generation
+        working-directory: ./ai_model
         run: python model.py
 
       - name: 36-Combination System Audit
+        working-directory: ./ai_model
         run: python test.py 
 
       - name: Logic Unit Testing
+        working-directory: ./ai_model
         run: pytest test_model_requirements.py
 
       - name: Upload AI Artifacts
