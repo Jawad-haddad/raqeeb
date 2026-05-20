@@ -16,19 +16,17 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r testing/requirements.txt
 
       - name: Feature Extraction
         run: python ai_model/preprocess.py
 
-      - name: SVM Training & Evaluation
+      - name: SVM Training & Model Generation
         run: python ai_model/model.py
 
       - name: 36-Combination System Audit
         run: python ai_model/test.py 
-
-      - name: Generate AI Model Weights
-        run: python ai_model/train.py  # FIX: Trains the model to generate the missing models.pkl file
 
       - name: Logic Unit Testing
         run: pytest ai_model/test_model_requirements.py
@@ -41,3 +39,5 @@ jobs:
           path: |
             models.pkl
             features_dataset.csv
+            ai_model/models.pkl
+            ai_model/features_dataset.csv
