@@ -15,7 +15,7 @@ flask-cors==6.0.0
 supabase==2.4.0
 python-dotenv==1.0.1
 
-# --- Testing & Utils ----
+# --- Testing & Utils ---
 # Validates 12-block range and accuracy thresholds
 pytest==8.0.0
 statistics
