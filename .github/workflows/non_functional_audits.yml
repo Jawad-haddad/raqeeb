@@ -158,7 +158,10 @@ jobs:
       if: always()
       timeout-minutes: 2
       run: |
-        jmeter -g results.jtl -o ./reports/
+        # Remove incomplete last line if test was killed mid-write
+        head -n -1 results.jtl > results_clean.jtl || cp results.jtl results_clean.jtl
+        jmeter -g results_clean.jtl -o ./reports/
+        
     - name: Upload JMeter Dashboard Metrics
       if: always()
       uses: actions/upload-artifact@v4
@@ -167,3 +170,4 @@ jobs:
         path: |
           results.jtl
           reports/
+  
