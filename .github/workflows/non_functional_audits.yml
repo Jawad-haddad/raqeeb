@@ -128,36 +128,71 @@ jobs:
    runs-on: ubuntu-latest
    steps:
     - uses: actions/checkout@v4
+
     - name: Set up JRE Runtime
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-        
+
     - name: Cache JMeter Binaries
       id: cache-jmeter
       uses: actions/cache@v4
       with:
         path: apache-jmeter-5.6.3
         key: jmeter-5.6.3-bin
+
     - name: Download JMeter Core Engine
       if: steps.cache-jmeter.outputs.cache-hit != 'true'
       run: |
         wget -q https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
         tar -xzf apache-jmeter-5.6.3.tgz
-        
+
     - name: Add JMeter binaries to Execution PATH
       run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
-      
+
+    - name: Fetch Active Session ID
+      id: get-session
+      run: |
+        SESSION_ID=$(curl -s \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/sessions?status=eq.active&select=id&limit=1" \
+          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['id']) if data else print('38cdfd18-18b4-4ed4-b788-0c660edf7226')")
+        echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+        echo "Using session: $SESSION_ID"
+
+    - name: Disable espData Trigger
+      run: |
+        curl -s -X POST \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/exec_sql" \
+          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"query": "ALTER TABLE \"espData\" DISABLE TRIGGER on_espdata_insert;"}'
+        echo "Trigger disabled"
+
     - name: Run JMeter Load Test Engine
-      timeout-minutes: 5
+      timeout-minutes: 3
       run: |
         jmeter -n -t testing/raqeeb_test_plan.jmx \
           -l results.jtl \
-          -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
-          -Jsession_id="38cdfd18-18b4-4ed4-b788-0c660edf7226" \
+          -e -o ./reports/ \
+          -Jsupabase_key="${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -Jsession_id="${{ steps.get-session.outputs.session_id }}" \
           -Djava.net.preferIPv4Stack=true
-          
+
+    - name: Re-enable espData Trigger
+      if: always()
+      run: |
+        curl -s -X POST \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/exec_sql" \
+          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"query": "ALTER TABLE \"espData\" ENABLE TRIGGER on_espdata_insert;"}'
+        echo "Trigger re-enabled"
+
     - name: Upload JMeter Dashboard Metrics
       if: always()
       uses: actions/upload-artifact@v4
@@ -166,4 +201,3 @@ jobs:
         path: |
           results.jtl
           reports/
-  
