@@ -159,13 +159,13 @@ jobs:
 
     - name: Disable espData Trigger
       run: |
-        curl -s -X POST \
+        RESULT=$(curl -s -X POST \
           "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/exec_sql" \
           -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
           -H "Content-Type: application/json" \
-          -d '{"query": "ALTER TABLE \"espData\" DISABLE TRIGGER on_espdata_insert;"}'
-        echo "Trigger disabled"
+          -d '{"query": "ALTER TABLE \"espData\" DISABLE TRIGGER on_espdata_insert;"}')
+        echo "Disable trigger response: $RESULT"
 
     - name: Run JMeter Load Test Engine
       timeout-minutes: 3
