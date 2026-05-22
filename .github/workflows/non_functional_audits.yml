@@ -152,7 +152,7 @@ jobs:
         jmeter -n -t testing/raqeeb_test_plan.jmx \
           -l results.jtl \
           -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
-          -Jsession_id="3680e72d-20c6-40f5-84fe-4b8517438387" \
+          -Jsession_id="38cdfd18-18b4-4ed4-b788-0c660edf7226" \
           -Djava.net.preferIPv4Stack=true
     - name: Generate HTML Report
       if: always()
