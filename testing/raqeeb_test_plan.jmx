@@ -14,10 +14,19 @@
             <stringProp name="Argument.value">${__P(supabase_key, eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4Ym1kbmhveXhzY2tkbmJlZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NzQyNjcsImV4cCI6MjA3OTA1MDI2N30.oe1IxHQLvAx176ieo5AccwkE9IAbs6c7SkuagETC4cY)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
+          <elementProp name="SESSION_ID" elementType="Argument">
+            <stringProp name="Argument.name">SESSION_ID</stringProp>
+            <stringProp name="Argument.value">${__P(session_id, 38cdfd18-18b4-4ed4-b788-0c660edf7226)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
         </collectionProp>
       </elementProp>
     </TestPlan>
     <hashTree>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- Thread Group 1: espData (trigger disabled)  -->
+      <!-- ═══════════════════════════════════════════ -->
       <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Global HTTP Header Manager">
         <collectionProp name="HeaderManager.headers">
           <elementProp name="" elementType="Header">
@@ -32,12 +41,15 @@
             <stringProp name="Header.name">Content-Type</stringProp>
             <stringProp name="Header.value">application/json</stringProp>
           </elementProp>
+          <elementProp name="" elementType="Header">
+            <stringProp name="Header.name">Prefer</stringProp>
+            <stringProp name="Header.value">return=minimal</stringProp>
+          </elementProp>
         </collectionProp>
       </HeaderManager>
       <hashTree/>
 
-      <!-- 100 concurrent users hitting the auth endpoint -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="100 Concurrent Users">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="ESP32 Signal Flood (100 users)">
         <intProp name="ThreadGroup.num_threads">100</intProp>
         <intProp name="ThreadGroup.ramp_time">5</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
@@ -47,10 +59,10 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Login (100 concurrent users)">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST espData">
           <stringProp name="HTTPSampler.domain">${SUPABASE_URL}</stringProp>
           <stringProp name="HTTPSampler.protocol">https</stringProp>
-          <stringProp name="HTTPSampler.path">/auth/v1/token?grant_type=password</stringProp>
+          <stringProp name="HTTPSampler.path">/rest/v1/espData</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
@@ -61,8 +73,13 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <stringProp name="Argument.value">{
-  "email": "tatest@gmail.com",
-  "password": "pas123"
+  "anchor_id": "ANCHOR_${__Random(1,3)}",
+  "ssid": "Raqeeb_Secure_Net",
+  "rssi": -${__Random(30,90)},
+  "block_number": ${__Random(1,12)},
+  "mac": "${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}",
+  "session_id": "${SESSION_ID}",
+  "hall_code": "HALL_TEST4"
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
@@ -70,6 +87,53 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree/>
+      </hashTree>
+
+      <!-- ═══════════════════════════════════════════════ -->
+      <!-- Thread Group 2: Whitelist Mass Provisioning     -->
+      <!-- ═══════════════════════════════════════════════ -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Whitelist Mass Provisioner (100 users)">
+        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST whitelist">
+          <stringProp name="HTTPSampler.domain">${SUPABASE_URL}</stringProp>
+          <stringProp name="HTTPSampler.protocol">https</stringProp>
+          <stringProp name="HTTPSampler.path">/rest/v1/whitelist</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <stringProp name="HTTPSampler.connect_timeout">10000</stringProp>
+          <stringProp name="HTTPSampler.response_timeout">15000</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <stringProp name="Argument.value">{
+  "mac": "${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}"
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Whitelist Header Override">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Prefer</stringProp>
+                <stringProp name="Header.value">resolution=ignore-duplicates,return=minimal</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+        </hashTree>
       </hashTree>
 
     </hashTree>
