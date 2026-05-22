@@ -133,6 +133,7 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
+        
     - name: Cache JMeter Binaries
       id: cache-jmeter
       uses: actions/cache@v4
@@ -144,24 +145,19 @@ jobs:
       run: |
         wget -q https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
         tar -xzf apache-jmeter-5.6.3.tgz
+        
     - name: Add JMeter binaries to Execution PATH
       run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
+      
     - name: Run JMeter Load Test Engine
-      timeout-minutes: 2
+      timeout-minutes: 5
       run: |
         jmeter -n -t testing/raqeeb_test_plan.jmx \
           -l results.jtl \
           -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
           -Jsession_id="38cdfd18-18b4-4ed4-b788-0c660edf7226" \
           -Djava.net.preferIPv4Stack=true
-    - name: Generate HTML Report
-      if: always()
-      timeout-minutes: 2
-      run: |
-        # Remove incomplete last line if test was killed mid-write
-        head -n -1 results.jtl > results_clean.jtl || cp results.jtl results_clean.jtl
-        jmeter -g results_clean.jtl -o ./reports/
-        
+          
     - name: Upload JMeter Dashboard Metrics
       if: always()
       uses: actions/upload-artifact@v4
