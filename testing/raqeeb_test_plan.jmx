@@ -41,9 +41,6 @@
       </HeaderManager>
       <hashTree/>
 
-      <!-- ═══════════════════════════════════════════════════ -->
-      <!--  Thread Group 1: Session Read Load (GET, no trigger) -->
-      <!-- ═══════════════════════════════════════════════════ -->
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Session Read Simulator">
         <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">2</intProp>
@@ -72,10 +69,7 @@
         </hashTree>
       </hashTree>
 
-      <!-- ═══════════════════════════════════════════════ -->
-      <!--  Thread Group 2: Whitelist Mass Provisioner    -->
-      <!-- ═══════════════════════════════════════════════ -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Whitelist Mass Provisioner">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Whitelist Read Simulator">
         <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
@@ -85,26 +79,15 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST whitelist">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET whitelist">
           <stringProp name="HTTPSampler.domain">${SUPABASE_URL}</stringProp>
           <stringProp name="HTTPSampler.protocol">https</stringProp>
-          <stringProp name="HTTPSampler.path">/rest/v1/whitelist</stringProp>
+          <stringProp name="HTTPSampler.path">/rest/v1/whitelist?select=mac&amp;limit=10</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
           <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
           <stringProp name="HTTPSampler.response_timeout">10000</stringProp>
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-              <elementProp name="" elementType="HTTPArgument">
-                <stringProp name="Argument.value">{&#xd;
-  &quot;mac&quot;: &quot;${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}&quot;&#xd;
-}</stringProp>
-                <stringProp name="Argument.metadata">=</stringProp>
-              </elementProp>
-            </collectionProp>
-          </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
           <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pacing Timer">
