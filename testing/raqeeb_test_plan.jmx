@@ -16,7 +16,7 @@
           </elementProp>
           <elementProp name="SESSION_ID" elementType="Argument">
             <stringProp name="Argument.name">SESSION_ID</stringProp>
-            <stringProp name="Argument.value">${__P(session_id, 3680e72d-20c6-40f5-84fe-4b8517438387)}</stringProp>
+            <stringProp name="Argument.value">${__P(session_id, 38cdfd18-18b4-4ed4-b788-0c660edf7226)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -41,7 +41,10 @@
       </HeaderManager>
       <hashTree/>
 
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="ESP32 Node Signal Simulator">
+      <!-- ═══════════════════════════════════════════════════ -->
+      <!--  Thread Group 1: Session Read Load (GET, no trigger) -->
+      <!-- ═══════════════════════════════════════════════════ -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Session Read Simulator">
         <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">2</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
@@ -51,32 +54,15 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST espData">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET sessions">
           <stringProp name="HTTPSampler.domain">${SUPABASE_URL}</stringProp>
           <stringProp name="HTTPSampler.protocol">https</stringProp>
-          <stringProp name="HTTPSampler.path">/rest/v1/espData</stringProp>
+          <stringProp name="HTTPSampler.path">/rest/v1/sessions?id=eq.${SESSION_ID}&amp;select=id,status,hall_code</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
           <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
           <stringProp name="HTTPSampler.response_timeout">10000</stringProp>
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-              <elementProp name="" elementType="HTTPArgument">
-                <stringProp name="Argument.value">{&#xd;
-  &quot;anchor_id&quot;: &quot;ANCHOR_${__Random(1,3)}&quot;,&#xd;
-  &quot;ssid&quot;: &quot;Raqeeb_Secure_Net&quot;,&#xd;
-  &quot;rssi&quot;: -${__Random(30,90)},&#xd;
-  &quot;block_number&quot;: ${__Random(1,12)},&#xd;
-  &quot;mac&quot;: &quot;${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}:${__RandomString(2,0123456789ABCDEF)}&quot;,&#xd;
-  &quot;session_id&quot;: &quot;${SESSION_ID}&quot;,&#xd;
-  &quot;hall_code&quot;: &quot;HALL_TEST4&quot;&#xd;
-}</stringProp>
-                <stringProp name="Argument.metadata">=</stringProp>
-              </elementProp>
-            </collectionProp>
-          </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
           <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pacing Timer">
@@ -86,6 +72,9 @@
         </hashTree>
       </hashTree>
 
+      <!-- ═══════════════════════════════════════════════ -->
+      <!--  Thread Group 2: Whitelist Mass Provisioner    -->
+      <!-- ═══════════════════════════════════════════════ -->
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Whitelist Mass Provisioner">
         <intProp name="ThreadGroup.num_threads">20</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
