@@ -151,16 +151,11 @@ jobs:
     - name: Add JMeter binaries to Execution PATH
       run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
 
-    - name: Fetch Active Session ID
+    - name: Set Session ID
       id: get-session
       run: |
-        SESSION_ID=$(curl -s \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/sessions?status=eq.active&select=id&limit=1" \
-          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['id']) if data else print('38cdfd18-18b4-4ed4-b788-0c660edf7226')")
-        echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
-        echo "Using session: $SESSION_ID"
+        echo "session_id=38cdfd18-18b4-4ed4-b788-0c660edf7226" >> $GITHUB_OUTPUT
+        echo "Using session: 38cdfd18-18b4-4ed4-b788-0c660edf7226"
 
     - name: Disable espData Trigger
       run: |
