@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabase";
+import { supabaseAdmin } from "./supabase-admin";
 import { getDetectionsFromSupabase } from "../data-utils";
 import HallGrid from "./HallGrid";
 import { Building2, Play, Square, Loader2, Clock, BookOpen, Radio, ChevronRight, RefreshCw } from "lucide-react";
@@ -97,15 +98,54 @@ export default function TAHallView() {
     if (!session || session.status !== "active") return;
     setLoadingDet(true);
 
-    const { data: wlRows } = await supabase.from("whitelist").select("mac");
-    const wlMAC = new Set((wlRows || []).map((w) => w.mac.trim().toLowerCase()));
+    const norm = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
 
-    const raw = await getDetectionsFromSupabase({ sessionId: session.id });
+    // Fetch espData with id so we can delete by id.
+    const { data: rawWithId } = await supabaseAdmin
+      .from("espData")
+      .select("id, anchor_id, ssid, rssi, block_number, mac, created_at, session_id")
+      .eq("session_id", session.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
 
-    const norm     = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
-    const filtered = (raw || []).filter((d) => !wlMAC.has(norm(d.mac)));
-    const uniqueKey = (d) => norm(d.mac) || norm(d.ssid) || String(d.id ?? "");
-    const unique   = Array.from(new Map(filtered.map((d) => [uniqueKey(d), d])).values());
+    const rows = rawWithId || [];
+
+    // Whitelist has 800K+ rows — never read it all.
+    // Query only for the small set of MACs currently in this session.
+    const detectionMACs = [...new Set(rows.map((d) => String(d.mac)).filter(Boolean))];
+    let wlMAC = new Set();
+
+    if (detectionMACs.length > 0) {
+      const { data: wlMatches } = await supabase
+        .from("whitelist")
+        .select("mac")
+        .in("mac", detectionMACs);
+
+      wlMAC = new Set((wlMatches || []).map((w) => norm(w.mac)));
+
+      if (wlMAC.size > 0) {
+        const toDeleteIds = rows.filter((d) => wlMAC.has(norm(d.mac))).map((d) => d.id);
+        const { error: delErr } = await supabaseAdmin
+          .from("espData")
+          .delete()
+          .in("id", toDeleteIds);
+        if (delErr) console.error("espData whitelist delete:", delErr.message);
+      }
+    }
+
+    // Filter from display — whitelisted MACs never shown.
+    const filtered = rows.filter((d) => !wlMAC.has(norm(d.mac)));
+
+    // Composite key MAC::SSID — same MAC + different SSID = separate detections.
+    // Data is newest-first so first occurrence per key = latest reading.
+    const seen = new Map();
+    for (const d of filtered) {
+      const mac  = norm(d.mac);
+      const ssid = norm(d.ssid);
+      const key  = (mac || ssid) ? `${mac}::${ssid}` : String(Math.random());
+      if (!seen.has(key)) seen.set(key, d);
+    }
+    const unique = Array.from(seen.values());
 
     setDetections(unique);
     prevDataRef.current = unique;
@@ -115,7 +155,7 @@ export default function TAHallView() {
   useEffect(() => {
     fetchDetections();
     if (!session || session.status !== "active") return;
-    const iv = setInterval(fetchDetections, 9000);
+    const iv = setInterval(fetchDetections, 10000);
     return () => clearInterval(iv);
   }, [fetchDetections]);
 

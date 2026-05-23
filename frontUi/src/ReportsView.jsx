@@ -158,14 +158,32 @@ function ReportDetail({ sessionId, reportMeta }) {
   useEffect(() => {
     if (!sessionId) return;
     (async () => {
-      const { data: devs } = await supabase
+      // Fetch newest-first so dedup below keeps the latest reading per device
+      const { data: rawDevs } = await supabase
         .from("espData")
         .select("ssid, mac, rssi, block_number, anchor_id, created_at")
         .eq("session_id", sessionId)
-        .order("block_number", { ascending: true, nullsFirst: false });
-      setDevices(devs || []);
+        .order("created_at", { ascending: false });
 
-      const macs = [...new Set((devs || []).map((d) => d.mac).filter(Boolean))];
+      // Same composite-key dedup as the live view: MAC::SSID, first seen = newest
+      const norm = (v) => (typeof v === "string" ? v.trim().toLowerCase() : "");
+      const seen = new Map();
+      for (const d of rawDevs || []) {
+        const mac  = norm(d.mac);
+        const ssid = norm(d.ssid);
+        const key  = (mac || ssid) ? `${mac}::${ssid}` : String(Math.random());
+        if (!seen.has(key)) seen.set(key, d);
+      }
+      // Re-sort by block_number for display after dedup
+      const devs = Array.from(seen.values()).sort((a, b) => {
+        const ba = a.block_number ?? Infinity;
+        const bb = b.block_number ?? Infinity;
+        return ba - bb;
+      });
+
+      setDevices(devs);
+
+      const macs = [...new Set(devs.map((d) => d.mac).filter(Boolean))];
       if (macs.length > 0) {
         const { data: comms } = await supabase
           .from("comments")
