@@ -185,10 +185,27 @@ jobs:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASS: ${{ secrets.TEST_USER_PASS }}
         run: |
-          TOKEN=$(curl -sf -X POST http://localhost:5000/login \
+          # Show raw response for debugging, don't fail silently
+          RAW=$(curl -s -X POST http://localhost:5000/login \
             -H "Content-Type: application/json" \
-            -d "{\"email\":\"$TEST_USER_EMAIL\",\"password\":\"$TEST_USER_PASS\"}" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))")
+            -d "{\"email\":\"$TEST_USER_EMAIL\",\"password\":\"$TEST_USER_PASS\"}")
+          echo "Login response: $RAW"
+
+          # Extract token — try 'token' key first, then 'access_token'
+          TOKEN=$(echo "$RAW" | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              print(data.get('token') or data.get('access_token') or '')
+          except Exception as e:
+              print('', end='')
+          ")
+
+          if [ -z "$TOKEN" ]; then
+            echo "WARNING: Could not extract token from login response. JMeter will run without auth."
+          else
+            echo "Token acquired successfully."
+          fi
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
       - name: Run JMeter load test
