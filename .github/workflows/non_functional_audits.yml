@@ -2,164 +2,136 @@ name: Non-Functional Testing Pipeline
 on: [push, pull_request]
 
 jobs:
-  # SECURITY
+  # SECURITY 
   security_audit:
-    name: Snyk Security Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r testing/requirements.txt
-      - name: Run Snyk Open Source Security Scan
-        uses: snyk/actions/python@master
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          command: test
-          # FIX: Separate arguments line-by-line so they parse as distinct Docker parameters
-          args: >
-            --file=testing/requirements.txt
-            --skip-unresolved=true
+          command: code test
+
   # PERFORMANCE & SPEED TESTING
   speed_audit:
-    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v4
+     - name: Setup Node.js
+       uses: actions/setup-node@v4
+       with:
+         node-version: '20'
+    
+     - name: Cache Node Modules
+       id: node-cache
+       uses: actions/cache@v4
+       with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') || 'lighthouse-v1' }}
+
+     - name: Install Dependencies
+       if: steps.node-cache.outputs.cache-hit != 'true'
+       run: npm install lighthouse puppeteer-core
+
+     - name: Run Audit Script
+       env:
+         EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+         PASSWORD: ${{ secrets.TEST_USER_PASS }}
+         PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome 
+       run: |
+        cat << 'EOF' > lighthouse-auth.js
+        const puppeteer = require('puppeteer-core');
+        const { startFlow } = require('lighthouse');
+        const fs = require('fs');
+        (async () => {
+          const browser = await puppeteer.launch({
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+          });
+          const page = await browser.newPage();
+          
+          try {
+            const flow = await startFlow(page, {
+              name: 'Raqeeb Dashboard Audit',
+              configContext: { settings: { screenEmulation: { disabled: true } } }
+            });
+            console.log('Step 1: Navigating...');
+            await page.goto('https://gradversion3.netlify.app/', { waitUntil: 'domcontentloaded' });
+            
+            console.log('Step 2: Entering Credentials...');
+            await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+            await page.type('input[type="email"]', process.env.EMAIL);
+            await page.type('input[type="password"]', process.env.PASSWORD);
+            await page.click('.login-button');
+            
+            console.log('Step 3: Waiting for Dashboard UI...');
+            // If this fails, the catch block will trigger and save a screenshot
+            await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 20000 });
+            
+            console.log('Step 4: Success! Capturing Snapshot...');
+            await flow.snapshot({ stepName: 'Dashboard Post-Login' });
+            const report = await flow.generateReport();
+            fs.writeFileSync('lh-report.html', report);
+            console.log('Report saved successfully.');
+          } catch (error) {
+            console.error('DIAGNOSTIC ERROR:', error.message);
+            await page.screenshot({ path: 'error-log.png', fullPage: true });
+            console.log('Screenshot saved to help you debug.');
+            process.exit(1); 
+          } finally {
+            await browser.close();
+          }
+        })();
+        EOF
+        node lighthouse-auth.js
+     - name: Upload Results
+       if: always() 
+       uses: actions/upload-artifact@v4
+       with:
+        name: lighthouse-results
+        path: |
+          lh-report.html
+          error-log.png
+  # LOAD TESTING
+  load_audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up JRE
+        uses: actions/setup-java@v4
         with:
-          node-version: '20'
-    
-      - name: Cache Node Modules
-        id: node-cache
+         distribution: 'temurin'
+         java-version: '17'
+         
+      - name: Cache JMeter
+        id: cache-jmeter
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-lighthouse-${{ hashFiles('package-lock.json') || 'v2' }}
+         path: apache-jmeter-5.6.3
+         key: jmeter-5.6.3-bin
 
-      
-      - name: Install Dependencies
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        run: npm install lighthouse puppeteer
-
-        
-      - name: Ensure Chromium Binary is Installed
-        run: npx puppeteer browsers install chrome
-
-
-      - name: Run Audit Script
-        env:
-          EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          PASSWORD: ${{ secrets.TEST_USER_PASS }}
+      - name: Download JMeter
+        if: steps.cache-jmeter.outputs.cache-hit != 'true'
         run: |
-          cat << 'EOF' > lighthouse-auth.js
-          const puppeteer = require('puppeteer');
-          const { startFlow } = require('lighthouse');
-          const fs = require('fs');
-          (async () => {
-            // Puppeteer automatically targets its self-bundled browser instance safely
-            const browser = await puppeteer.launch({
-              headless: "new",
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            });
-            const page = await browser.newPage();
-            
-            try {
-              const flow = await startFlow(page, {
-                name: 'Raqeeb Dashboard Audit',
-                configContext: { settings: { screenEmulation: { disabled: true } } }
-              });
-              console.log('Step 1: Navigating to landing portal...');
-              await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
-              
-              console.log('Step 2: Authenticating User...');
-              await page.waitForSelector('input[type="email"]', { timeout: 15000 });
-              await page.type('input[type="email"]', process.env.EMAIL);
-              await page.type('input[type="password"]', process.env.PASSWORD);
-              await page.click('.login-button');
-              
-              console.log('Step 3: Rendering Protected Dashboard Controls...');
-              await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 25000 });
-              
-              console.log('Step 4: Compiling Core Web Vitals Flow Metrics...');
-              await flow.snapshot({ stepName: 'Dashboard Post-Login' });
-              const report = await flow.generateReport();
-              fs.writeFileSync('lh-report.html', report);
-              console.log('Performance audit output successfully captured.');
-            } catch (error) {
-              console.error('DIAGNOSTIC CRASH ENCOUNTERED:', error.message);
-              await page.screenshot({ path: 'error-log.png', fullPage: true });
-              process.exit(1); 
-            } finally {
-              await browser.close();
-            }
-          })();
-          EOF
-          node lighthouse-auth.js
-      - name: Upload Audit Visuals & Reports
-        if: always() 
+          wget -q https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz
+          tar -xzf apache-jmeter-5.6.3.tgz
+      - name: Add JMeter to Path
+        run: echo "$(pwd)/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
+
+      - name: Run JMeter Load Test
+        run: |
+          jmeter -n -t ./raqeeb_test_plan.jmx \
+               -l results.jtl \
+               -e -o ./reports/ \
+               -Djava.net.preferIPv4Stack=true
+      - name: Upload Results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse-performance-results
+          name: jmeter-results
           path: |
-            lh-report.html
-            error-log.png
-  # LOAD TESTING
-  load_audit:
-   name: JMeter Database Stress Test
-   runs-on: ubuntu-latest
-   steps:
-    - uses: actions/checkout@v4
-    - name: Set up JRE Runtime
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-    - name: Cache JMeter Binaries
-      id: cache-jmeter
-      uses: actions/cache@v4
-      with:
-        path: apache-jmeter-5.6.3
-        key: jmeter-5.6.3-bin
-    - name: Download JMeter Core Engine
-      if: steps.cache-jmeter.outputs.cache-hit != 'true'
-      run: |
-        wget -q https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
-        tar -xzf apache-jmeter-5.6.3.tgz
-    - name: Add JMeter binaries to Execution PATH
-      run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
-    - name: Run JMeter Load Test Engine
-      timeout-minutes: 2
-      run: |
-        jmeter -n -t testing/raqeeb_test_plan.jmx \
-          -l results.jtl \
-          -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
-          -Jsession_id="38cdfd18-18b4-4ed4-b788-0c660edf7226" \
-          -Djava.net.preferIPv4Stack=true
-    - name: Generate HTML Report
-      if: always()
-      timeout-minutes: 2
-      run: |
-        # Remove incomplete last line if test was killed mid-write
-        head -n -1 results.jtl > results_clean.jtl || cp results.jtl results_clean.jtl
-        jmeter -g results_clean.jtl -o ./reports/
-        
-    - name: Upload JMeter Dashboard Metrics
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: jmeter-load-results
-        path: |
-          results.jtl
-          reports/
-  
+            results.jtl
+            reports/
