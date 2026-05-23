@@ -2,7 +2,7 @@ name: Non-Functional Testing Pipeline
 on: [push, pull_request]
 
 jobs:
-  # SECURITY
+  # SECURITY 
   security_audit:
     name: Snyk Security Vulnerability Scan
     runs-on: ubuntu-latest
