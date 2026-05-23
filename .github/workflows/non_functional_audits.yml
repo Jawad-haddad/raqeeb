@@ -146,7 +146,9 @@ jobs:
           jmeter -n -t testing/raqeeb_test_plan.jmx \
                -l results.jtl \
                -e -o ./reports/ \
+               -Jsupabase_key="${{ secrets.SUPABASE_KEY }}" \
                -Djava.net.preferIPv4Stack=true
+               
       - name: Upload Results
         if: always()
         uses: actions/upload-artifact@v4
