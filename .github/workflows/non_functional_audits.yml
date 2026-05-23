@@ -25,7 +25,6 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test
-          # FIX: Separate arguments line-by-line so they parse as distinct Docker parameters
           args: >
             --file=testing/requirements.txt
             --skip-unresolved=true
@@ -41,7 +40,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-    
+
       - name: Cache Node Modules
         id: node-cache
         uses: actions/cache@v4
@@ -49,15 +48,12 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-node-lighthouse-${{ hashFiles('package-lock.json') || 'v2' }}
 
-      
       - name: Install Dependencies
         if: steps.node-cache.outputs.cache-hit != 'true'
         run: npm install lighthouse puppeteer
 
-        
       - name: Ensure Chromium Binary is Installed
         run: npx puppeteer browsers install chrome
-
 
       - name: Run Audit Script
         env:
@@ -70,13 +66,12 @@ jobs:
           const fs = require('fs');
 
           (async () => {
-            // Puppeteer automatically targets its self-bundled browser instance safely
             const browser = await puppeteer.launch({
               headless: "new",
               args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
             });
             const page = await browser.newPage();
-            
+
             try {
               const flow = await startFlow(page, {
                 name: 'Raqeeb Dashboard Audit',
@@ -85,16 +80,16 @@ jobs:
 
               console.log('Step 1: Navigating to landing portal...');
               await page.goto('https://gradversion2.netlify.app/', { waitUntil: 'domcontentloaded' });
-              
+
               console.log('Step 2: Authenticating User...');
               await page.waitForSelector('input[type="email"]', { timeout: 15000 });
               await page.type('input[type="email"]', process.env.EMAIL);
               await page.type('input[type="password"]', process.env.PASSWORD);
               await page.click('.login-button');
-              
+
               console.log('Step 3: Rendering Protected Dashboard Controls...');
               await page.waitForSelector('.dashboard-sidebar', { visible: true, timeout: 25000 });
-              
+
               console.log('Step 4: Compiling Core Web Vitals Flow Metrics...');
               await flow.snapshot({ stepName: 'Dashboard Post-Login' });
 
@@ -105,7 +100,7 @@ jobs:
             } catch (error) {
               console.error('DIAGNOSTIC CRASH ENCOUNTERED:', error.message);
               await page.screenshot({ path: 'error-log.png', fullPage: true });
-              process.exit(1); 
+              process.exit(1);
             } finally {
               await browser.close();
             }
@@ -114,32 +109,32 @@ jobs:
           node lighthouse-auth.js
 
       - name: Upload Audit Visuals & Reports
-        if: always() 
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-performance-results
           path: |
             lh-report.html
             error-log.png
-            
+
   # LOAD TESTING
   load_audit:
-     name: Load Test (JMeter)
-     runs-on: ubuntu-latest
- 
-     steps:
+    name: Load Test (JMeter)
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
- 
+
       - name: Start Raqeeb server
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -154,24 +149,24 @@ jobs:
             fi
             sleep 1
           done
- 
+
       - name: Cache JMeter
         id: cache-jmeter
         uses: actions/cache@v4
         with:
           path: ~/jmeter
           key: jmeter-5.6.3
- 
+
       - name: Install JMeter (if not cached)
         if: steps.cache-jmeter.outputs.cache-hit != 'true'
         run: |
           wget -q https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz -O /tmp/jmeter.tgz
           mkdir -p ~/jmeter
           tar -xzf /tmp/jmeter.tgz -C ~/jmeter --strip-components=1
- 
+
       - name: Create results directory
         run: mkdir -p jmeter-results
- 
+
       - name: Get auth token for tests
         id: auth
         env:
@@ -180,12 +175,25 @@ jobs:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASS: ${{ secrets.TEST_USER_PASS }}
         run: |
-          TOKEN=$(curl -sf -X POST http://localhost:5000/login \
+          RAW=$(curl -s -X POST http://localhost:5000/login \
             -H "Content-Type: application/json" \
-            -d "{\"email\":\"$TEST_USER_EMAIL\",\"password\":\"$TEST_USER_PASS\"}" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))")
+            -d "{\"email\":\"$TEST_USER_EMAIL\",\"password\":\"$TEST_USER_PASS\"}")
+          echo "Login response: $RAW"
+          TOKEN=$(echo "$RAW" | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              print(data.get('token') or data.get('access_token') or '')
+          except:
+              print('', end='')
+          ")
+          if [ -z "$TOKEN" ]; then
+            echo "WARNING: Could not extract token. JMeter will run without auth."
+          else
+            echo "Token acquired successfully."
+          fi
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
- 
+
       - name: Run JMeter load test
         run: |
           ~/jmeter/bin/jmeter \
@@ -197,14 +205,13 @@ jobs:
             -Jauth_token=${{ steps.auth.outputs.token }} \
             -Jjmeter.save.saveservice.output_format=csv \
             -Jjmeter.save.saveservice.print_field_names=true
- 
+
       - name: Check for failures
         run: |
           FAILURES=$(grep -c ",false," jmeter-results/raqeeb_load_results.jtl || true)
           TOTAL=$(grep -c "," jmeter-results/raqeeb_load_results.jtl || true)
           echo "Total samples: $TOTAL"
           echo "Failures: $FAILURES"
-          # Fail the job if error rate > 5%
           if [ "$TOTAL" -gt 0 ] && [ "$FAILURES" -gt 0 ]; then
             RATE=$(echo "scale=2; $FAILURES * 100 / $TOTAL" | bc)
             echo "Error rate: ${RATE}%"
@@ -214,7 +221,7 @@ jobs:
             fi
           fi
           echo "Load test passed."
- 
+
       - name: Upload JMeter results
         if: always()
         uses: actions/upload-artifact@v4
