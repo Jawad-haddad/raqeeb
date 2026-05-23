@@ -121,78 +121,104 @@ jobs:
           path: |
             lh-report.html
             error-log.png
-
+            
   # LOAD TESTING
   load_audit:
-   name: JMeter Database Stress Test
-   runs-on: ubuntu-latest
-   steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up JRE Runtime
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Cache JMeter Binaries
-      id: cache-jmeter
-      uses: actions/cache@v4
-      with:
-        path: apache-jmeter-5.6.3
-        key: jmeter-5.6.3-bin
-
-    - name: Download JMeter Core Engine
-      if: steps.cache-jmeter.outputs.cache-hit != 'true'
-      run: |
-        wget -q https://dlcdn.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
-        tar -xzf apache-jmeter-5.6.3.tgz
-
-    - name: Add JMeter binaries to Execution PATH
-      run: echo "$GITHUB_WORKSPACE/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
-
-    - name: Set Session ID
-      id: get-session
-      run: |
-        echo "session_id=38cdfd18-18b4-4ed4-b788-0c660edf7226" >> $GITHUB_OUTPUT
-        echo "Using session: 38cdfd18-18b4-4ed4-b788-0c660edf7226"
-
-    - name: Disable espData Trigger
-      run: |
-        RESULT=$(curl -s -X POST \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/exec_sql" \
-          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -H "Content-Type: application/json" \
-          -d '{"query": "ALTER TABLE \"espData\" DISABLE TRIGGER on_espdata_insert;"}')
-        echo "Disable trigger response: $RESULT"
-
-    - name: Run JMeter Load Test Engine
-      timeout-minutes: 3
-      run: |
-        jmeter -n -t testing/raqeeb_test_plan.jmx \
-          -l results.jtl \
-          -e -o ./reports/ \
-          -Jsupabase_key="${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -Jsession_id="${{ steps.get-session.outputs.session_id }}" \
-          -Djava.net.preferIPv4Stack=true
-
-    - name: Re-enable espData Trigger
-      if: always()
-      run: |
-        curl -s -X POST \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/exec_sql" \
-          -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-          -H "Content-Type: application/json" \
-          -d '{"query": "ALTER TABLE \"espData\" ENABLE TRIGGER on_espdata_insert;"}'
-        echo "Trigger re-enabled"
-
-    - name: Upload JMeter Dashboard Metrics
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: jmeter-load-results
-        path: |
-          results.jtl
-          reports/
+     name: Load Test (JMeter)
+     runs-on: ubuntu-latest
+ 
+     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+ 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+ 
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+ 
+      - name: Start Raqeeb server
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python server.py &
+          echo "Waiting for server to be ready..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "Server is up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+ 
+      - name: Cache JMeter
+        id: cache-jmeter
+        uses: actions/cache@v4
+        with:
+          path: ~/jmeter
+          key: jmeter-5.6.3
+ 
+      - name: Install JMeter (if not cached)
+        if: steps.cache-jmeter.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz -O /tmp/jmeter.tgz
+          mkdir -p ~/jmeter
+          tar -xzf /tmp/jmeter.tgz -C ~/jmeter --strip-components=1
+ 
+      - name: Create results directory
+        run: mkdir -p jmeter-results
+ 
+      - name: Get auth token for tests
+        id: auth
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASS: ${{ secrets.TEST_USER_PASS }}
+        run: |
+          TOKEN=$(curl -sf -X POST http://localhost:5000/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$TEST_USER_EMAIL\",\"password\":\"$TEST_USER_PASS\"}" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))")
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+ 
+      - name: Run JMeter load test
+        run: |
+          ~/jmeter/bin/jmeter \
+            -n \
+            -t raqeeb_load_test.jmx \
+            -l jmeter-results/raqeeb_load_results.jtl \
+            -e \
+            -o jmeter-results/html-report \
+            -Jauth_token=${{ steps.auth.outputs.token }} \
+            -Jjmeter.save.saveservice.output_format=csv \
+            -Jjmeter.save.saveservice.print_field_names=true
+ 
+      - name: Check for failures
+        run: |
+          FAILURES=$(grep -c ",false," jmeter-results/raqeeb_load_results.jtl || true)
+          TOTAL=$(grep -c "," jmeter-results/raqeeb_load_results.jtl || true)
+          echo "Total samples: $TOTAL"
+          echo "Failures: $FAILURES"
+          # Fail the job if error rate > 5%
+          if [ "$TOTAL" -gt 0 ] && [ "$FAILURES" -gt 0 ]; then
+            RATE=$(echo "scale=2; $FAILURES * 100 / $TOTAL" | bc)
+            echo "Error rate: ${RATE}%"
+            if (( $(echo "$RATE > 5" | bc -l) )); then
+              echo "ERROR: Error rate ${RATE}% exceeds 5% threshold"
+              exit 1
+            fi
+          fi
+          echo "Load test passed."
+ 
+      - name: Upload JMeter results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-load-report
+          path: jmeter-results/
+          retention-days: 30
